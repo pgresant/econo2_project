@@ -1,0 +1,46 @@
+---
+title: "Subject 2 - Econometrics 2 - Applied Project: Labor Market and Origin"
+author: "Polixène, Juliette, Rachel"
+output: html_document
+date: "2026-03-27"
+---
+
+```{r setup, include=FALSE}
+#install.packages()
+library(haven)
+```
+
+```{r data, include=FALSE}
+url <- "https://github.com/pgresant/econo2_project/raw/main/DM_Subject_2_Data.dta"
+data <- read_dta(url)
+```
+
+
+# 1. Intensive Margin (Net Hourly Wage)
+
+```{r}
+
+```
+
+
+# 2. Extensive Margin (Employed vs. Unemployed)
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+partie de base à garder pr avoir une idée de comment faire ce type de truc  
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
