@@ -1,26 +1,155 @@
 ---
-title: "Subject 2 - Econometrics 2 - Applied Project: Labor Market and Origin"
-author: "Polixène, Juliette, Rachel"
-output: html_document
-date: "2026-03-27"
+title: "DM Econometrics - Labor Market and Origin"
+subtitle: "Econometrics 2 — ENSAE 2A — Polixène Gresant, Rachel Issiakou, Juliette Lesné"
+date: "Avril 2026"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
 #install.packages()
 library(haven)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(sandwich)    
+library(lmtest)      
+library(AER)         
+library(plm)         
+library(margins)     
+library(stargazer)  
 ```
 
 ```{r data, include=FALSE}
 url <- "https://github.com/pgresant/econo2_project/raw/main/DM_Subject_2_Data.dta"
-data <- read_dta(url)
+df <- read_dta(url)
+
+# We are going to recode some variables in the data set so that we can use them later in our project
+
+# We convert text variables to numbers, in order to use them in regressions
+df <- df %>%
+  mutate(
+    educ_num   = as.numeric(education),
+    age_num    = as.numeric(age),
+    homme_num  = as.numeric(homme),
+    age2       = age_num^2, # we create a new variable, age2, to capture the flattening effect of age on wages (concave profile)
+    acteu_chr  = as.character(acteu), # We convert the variable acteu to character
+    chomeur_num = as.numeric(chomeur)
+  )
+
+# We can't throw the categorical variable origin directly into the linear regression, so we explode it into separate 0/1 columns, one per origin group. France ("01) is left out as the reference category and then, all origen coefficients are interpreted as relative to the french-origen individuals. 
+origines <- c("03","04","05","06","07","08","09","10")
+for (o in origines) {
+  df[[paste0("orig_", o)]] <- as.numeric(df$origine == o)
+}
+
+# We make the same thing for education, where we create dummy variables. Level 7 (no diploma) is the reference category and all the other categories are interpreted as regards to that level. 
+for (e in c(1, 3, 4, 5, 6)) {
+  df[[paste0("educ_", e)]] <- as.numeric(df$educ_num == e)
+}
+
+# Explanatory labels for origin
+origin_labels <- c(
+  "01" = "France",
+  "03" = "Nothern Europe",
+  "04" = "Southern Europe",
+  "05" = "Eastern Europe",
+  "06" = "Maghreb",
+  "07" = "Rest of Africa",
+  "08" = "Middle East",
+  "09" = "Southern Asia",
+  "10" = "Rest of the world"
+)
 ```
 
 
 # 1. Intensive Margin (Net Hourly Wage)
 
-```{r}
+**Question 1**
 
+```{r q1_sample}
+# We select the sample : employed individuals in the last observed quarter (t=6) 
+last_q <- df %>%
+  filter(t == 6, acteu_chr == "1", !is.na(salhoraire)) %>%
+  mutate(
+    contrat_0 = as.numeric(contrat == "0"),
+    contrat_2 = as.numeric(contrat == "2"),
+    contrat_4 = as.numeric(contrat == "4"),
+    csp_4 = as.numeric(csp_actif == "4"),
+    csp_5 = as.numeric(csp_actif == "5"),
+    csp_6 = as.numeric(csp_actif == "6")
+  )
+
+cat("N =", nrow(last_q), "employed individuals with observed salary \n")
 ```
+
+```{r q1_stats}
+# First, we make few descriptive statistics of salary 
+summary(last_q$salhoraire)
+summary(last_q$logsalhoraire)
+
+# Distribution of origin within employed individuals
+last_q %>%
+  count(origine) %>%
+  mutate(label = origin_labels[origine], pct = round(100 * n / sum(n), 1)) %>%
+  arrange(desc(n))
+```
+
+```{r q1_formulas}
+# Regressions
+orig_variables <- paste0("orig_", origines, collapse = " + ")
+educ_variables <- paste0("educ_", c(1,3,4,5,6), collapse = " + ")
+contrat_variables <- "contrat_0 + contrat_2 + contrat_4"
+csp_variables     <- "csp_4 + csp_5 + csp_6"
+
+# M1 : sans éducation
+f_m1 <- as.formula(paste("logsalhoraire ~ homme_num + age_num + age2 +", orig_variables))
+
+# M2 : avec éducation (variable d'intérêt principale)
+f_m2 <- as.formula(paste("logsalhoraire ~ homme_num + age_num + age2 +",
+                          educ_variables, "+", orig_variables))
+
+# M3 : avec éducation + type de contrat + CSP (analyse des canaux)
+f_m3 <- as.formula(paste("logsalhoraire ~ homme_num + age_num + age2 +",
+                          educ_variables, "+", orig_variables, "+",
+                          contrat_variables, "+", csp_variables))
+
+# M4 : salaire en niveau (pas log) — pour comparaison Q1b
+f_m4 <- as.formula(paste("salhoraire ~ homme_num + age_num + age2 +",
+                          educ_variables, "+", orig_variables))
+```
+
+```{r q1_ols}
+# Estimation OLS with robust standard error HC1 
+m1 <- lm(f_m1, data = last_q)
+m2 <- lm(f_m2, data = last_q)
+m3 <- lm(f_m3, data = last_q)
+m4 <- lm(f_m4, data = last_q)
+
+coeftest(m1, vcov = vcovHC(m1, type = "HC1"))
+coeftest(m2, vcov = vcovHC(m2, type = "HC1"))
+coeftest(m3, vcov = vcovHC(m3, type = "HC1"))
+coeftest(m4, vcov = vcovHC(m4, type = "HC1"))
+```
+
+**Explications**
+
+Four different regressions are carried out to test the differences in the coefficients of the variables and their significance, depending on the variables and categories used. These are four OLS models with standard errors robust to heteroscedasticity (HC1) based on the 4 046 employees in the last quarter. In the first three regressions, the dependent variable is the log of the hourly wage; whereas in the last one, the dependent variable is the hourly wage in absolute terms. For the first three regressions, explanatory variables are added in each case to determine the channels through which origin affects wages.
+
+In the first regression, we regress only the logarithm of wages against gender, age, age squared, and origin. The significant coefficients relating to origin are those for Northern European origin (+0.126), the rest of Africa (-0.15) and South Asia (-0.151). This can be interpreted as follows: all other things being equal, an employee of South Asian origin earns approximately 15% less than an employee of French origin.
+
+In the second regression, the education variable is included. The origins with significant coefficients are those from Southern Europe (0.49) and the rest of Africa (-0.113). The origin coefficients decrease for almost all origins. For example, for the ‘rest of Africa’ origin, the wage gap relative to individuals of French origin is -15% in the first regression, then -11% in the second. This means that part of this wage gap is due to the fact that certain groups have, on average, a lower level of education. For those of South-East Asian origin, the wage gap with employees of French origin disappears when education is included, which therefore appears to fully explain the gross wage gap.
+
+In the third regression, explanatory variables relating to contract type and socio-professional categories are also included. With regard to origin, the significant coefficients are those for origins associated with Northern Europe (+0.1) and Southern Europe (0.0577). The coefficients for origin diminish further and become insignificant. So another part of the pay gap can now be explained by the type of job held. The coefficient associated with African origin is no longer significant, so does the pay gap relative to individuals of French origin disappear completely once we control for the variables of education and type of job. Thus, direct discrimination regarding equal pay for equal work is not captured here, as inequality operates upstream, via access to education and good jobs. Nevertheless, there may be over-control if these variables are themselves consequences of origin.
+
+For the final regression, we take wage as the dependent variable directly, and as a result the coefficients associated with the intercept are no longer significant. This can be explained by the high variance in wage levels, as the distribution is skewed and high wages introduce noise. In the following analysis, we will therefore use the logarithm of wage as the dependent variable;
+
+In conclusion, wage gaps gradually narrow as we add controls. The only group for which the gap persists after controls is Southern Europe (with a coefficient of +6% in the third regression). So, at first glance, origin acts mainly through observable channels (level of education, type of employment), rather than through direct discrimination when the job and qualifications are identical.
+
 
 
 # 2. Extensive Margin (Employed vs. Unemployed)
