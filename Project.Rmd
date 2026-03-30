@@ -123,8 +123,14 @@ f_m4 <- as.formula(paste("salhoraire ~ homme_num + age_num + age2 +",
                           educ_variables, "+", orig_variables))
 ```
 
+```{r}
+last_q$contratfact <- as.factor(last_q$contrat)
+mod1 <- lm(logsalhoraire ~ homme_num + contrat + origines, data = last_q)
+summary(mod1)
+```
+
 ```{r q1_ols}
-# Estimation OLS with robust standard error HC1 
+# Estimation OLS with obust standard error HC1 
 m1 <- lm(f_m1, data = last_q)
 m2 <- lm(f_m2, data = last_q)
 m3 <- lm(f_m3, data = last_q)
