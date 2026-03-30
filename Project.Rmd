@@ -22,6 +22,7 @@ library(AER)
 library(plm)         
 library(margins)     
 library(stargazer)  
+library(questionr)
 ```
 
 ```{r data, include=FALSE}
@@ -30,30 +31,16 @@ df <- read_dta(url)
 
 # We are going to recode some variables in the data set so that we can use them later in our project
 
-# We convert text variables to numbers, in order to use them in regressions
-df <- df %>%
-  mutate(
-    educ_num   = as.numeric(education),
-    age_num    = as.numeric(age),
-    homme_num  = as.numeric(homme),
-    age2       = age_num^2, # we create a new variable, age2, to capture the flattening effect of age on wages (concave profile)
-    acteu_chr  = as.character(acteu), # We convert the variable acteu to character
-    chomeur_num = as.numeric(chomeur)
-  )
+class(df$slogsalhoraire)
+class(df$logsalhoraire)
 
-# We can't throw the categorical variable origin directly into the linear regression, so we explode it into separate 0/1 columns, one per origin group. France ("01) is left out as the reference category and then, all origen coefficients are interpreted as relative to the french-origen individuals. 
-origines <- c("03","04","05","06","07","08","09","10")
-for (o in origines) {
-  df[[paste0("orig_", o)]] <- as.numeric(df$origine == o)
-}
+vars_num <- c("age")
+df[vars_num] <- lapply(df[vars_num], as.factor) # We convert continous variables to numbers, in order to use them in regressions
 
-# We make the same thing for education, where we create dummy variables. Level 7 (no diploma) is the reference category and all the other categories are interpreted as regards to that level. 
-for (e in c(1, 3, 4, 5, 6)) {
-  df[[paste0("educ_", e)]] <- as.numeric(df$educ_num == e)
-}
+vars_cat <- c("education", "origine", "contrat", "csp_actif", "csp_mere", "csp_pere", "acteu", "homme")
+df[vars_cat] <- lapply(df[vars_cat], as.factor) # We convert categorical variables to factor, in order to use them in regressions
 
-# Explanatory labels for origin
-origin_labels <- c(
+df$origine <- recode(df$origine,   
   "01" = "France",
   "03" = "Nothern Europe",
   "04" = "Southern Europe",
@@ -62,8 +49,51 @@ origin_labels <- c(
   "07" = "Rest of Africa",
   "08" = "Middle East",
   "09" = "Southern Asia",
-  "10" = "Rest of the world"
-)
+  "10" = "Rest of the world") 
+
+df$contrat <- recode(df$contrat,   
+  "0" = "Not employed",
+  "1" = "CDI",
+  "2" = "CD",
+  "3" = "seasonal_contract",
+  "4" = "Interim",
+  "5" = "Apprentissage",
+  "" = "99") 
+
+df$education <- recode(df$education,   
+  "1" = ">Bac+2",
+  "3" = "Bac+2",
+  "4" = "Bac",
+  "5" = "CAP-BEP",
+  "6" = "Brevet",
+  "7" = "Aucun",
+  "" = "99") 
+
+df$acteu <- recode(df$acteu,   
+  "1" = "Employed",
+  "2" = "Unemployed",
+  "3" = "Inactive") 
+
+df$csp_actif <- recode(df$csp_actif,   
+  "1" = "Farmers",
+  "2" = "Craftsmen, company head",
+  "3" = "CPIS", 
+  "4" = "Intermediate profession",
+  "5" = "Service employees",
+  "6" = "Manual workers", 
+  "8" = "Unemployed never worked", 
+  "0" = "99"
+  ) 
+
+df <- df %>% mutate(origine_bin = ifelse(df$origine == "France", "France", ifelse(df$origine == "99", "99", "Autre")) )
+
+# precision about the reference category 
+df$acteu <- recode(df$acteu, ref = "Employed")
+df$origine <- recode(df$origine, ref = "France")
+df$origine_bin <- recode(df$origine_bin, ref = "France") # la catégorie aucun est la plus fréquente mais bon ... 
+df$education <- recode(df$education, ref = "Aucun")# la catégorie 7 est la plus fréquente mais bon ...je pense on eput changer selon le subdataset
+df$contrat <- recode(df$contrat, ref = "CDI") # category la plus fréquente
+df$csp <- recode(df$csp, ref = "Service employes") # category la plus fréquente
 ```
 
 
@@ -73,16 +103,8 @@ origin_labels <- c(
 
 ```{r q1_sample}
 # We select the sample : employed individuals in the last observed quarter (t=6) 
-last_q <- df %>%
-  filter(t == 6, acteu_chr == "1", !is.na(salhoraire)) %>%
-  mutate(
-    contrat_0 = as.numeric(contrat == "0"),
-    contrat_2 = as.numeric(contrat == "2"),
-    contrat_4 = as.numeric(contrat == "4"),
-    csp_4 = as.numeric(csp_actif == "4"),
-    csp_5 = as.numeric(csp_actif == "5"),
-    csp_6 = as.numeric(csp_actif == "6")
-  )
+lastq_emp <- df %>%
+  filter(t == 6, acteu == "1")
 
 cat("N =", nrow(last_q), "employed individuals with observed salary \n")
 ```
@@ -97,6 +119,31 @@ last_q %>%
   count(origine) %>%
   mutate(label = origin_labels[origine], pct = round(100 * n / sum(n), 1)) %>%
   arrange(desc(n))
+```
+
+```{r}
+m1 <- lm(logsalhoraire ~ origine, data = lastq_emp)
+summary(m1)
+```
+
+```{r}
+m2 <- lm(logsalhoraire ~ homme + age + age2 + origine, data = lastq_emp)
+summary(m2)
+```
+
+```{r}
+m3 <- lm(logsalhoraire ~ homme + age + age2 + origine + contrat, data = lastq_emp)
+summary(m3)
+```
+
+```{r}
+m4 <- lm(logsalhoraire ~ homme + age + age2 + origine + contrat, data = lastq_emp)
+summary(m4)
+```
+
+```{r}
+m5 <- lm(logsalhoraire ~ homme + age + age2 + origine + contrat + csp, data = lastq_emp)
+summary(m5)
 ```
 
 ```{r q1_formulas}
