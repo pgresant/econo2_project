@@ -94,7 +94,7 @@ class(df$salhoraire) # verification of the class of the dependent variables
 class(df$logsalhoraire)
 
 vars_num <- c("age")
-df[vars_num] <- lapply(df[vars_num], as.factor) # We convert continous variables into numbers, in order to use them in regressions
+df[vars_num] <- lapply(df[vars_num], as.numeric) # We convert continous variables into numbers, in order to use them in regressions
 
 vars_cat <- c("education", "origine", "contrat", "csp_actif", "csp_mere", "csp_pere", "acteu", "homme", "origine_bin")
 df[vars_cat] <- lapply(df[vars_cat], as.factor) # We convert categorical variables to factor, in order to use them in regressions
@@ -105,7 +105,10 @@ df$origine <- relevel(df$origine, ref = "France")
 df$origine_bin <- relevel(df$origine_bin, ref = "France") # la catégorie aucun est la plus fréquente mais bon ...
 df$education <- relevel(df$education, ref = "Aucun")# la catégorie 7 est la plus fréquente mais bon ...je pense on eput changer selon le subdataset
 df$contrat <- relevel(df$contrat, ref = "CDI") # category la plus fréquente
-df$csp_actif <- relevel(df$csp_actif, ref = "Service employees") # category la plus fréquente
+df$csp_actif <- relevel(df$csp_actif, ref = "Service employees") # category la plus fréquente$
+
+# We create some variables 
+df$age2 <- df$age^2
 ```
 
 
@@ -132,30 +135,33 @@ summary(last_q$logsalhoraire)
 freq(lastq_emp$origine)
 ```
 
+We estimate several models, using the function lm_robust (instead of lm), to compute heteroscedasticity-robust standard errors. Indee, we are not sure that the homoscedasticity asumptions holds here. 
+
 ```{r}
-m1 <- lm(logsalhoraire ~ origine, data = lastq_emp)
+m1 <- lm_robust(logsalhoraire ~ origine, data = lastq_emp)
 summary(m1)
 ```
 
 ```{r}
-m2 <- lm(logsalhoraire ~ homme + age + age2 + origine, data = lastq_emp)
+m2 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine, data = lastq_emp)
 summary(m2)
 ```
 
 ```{r}
-m3 <- lm(logsalhoraire ~ homme + age + age2 + origine + contrat, data = lastq_emp)
+m3 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine + contrat, data = lastq_emp)
 summary(m3)
 ```
 
 ```{r}
-m4 <- lm(logsalhoraire ~ homme + age + age2 + origine + contrat + csp, data = lastq_emp)
+m4 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine + contrat + csp, data = lastq_emp)
 summary(m4)
 ```
 
 ```{r}
-m5 <- lm(logsalhoraire ~ homme + age + age2 + origine + contrat + csp +, data = lastq_emp)
+m5 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine + contrat + csp +, data = lastq_emp)
 summary(m5)
 ```
+
 
 
 **Explications**
@@ -202,7 +208,7 @@ lastq <- lastq %>% mutate(act = ifelse(lastq$acteu == "Employed", 1, 0))
 
 We begin by estimating a probit model. 
 ```{r}
-probit_model <- glm(act ~ origine, family = binomial(link = "probit"), data = lastq)
+probit_model <- glm(act ~ origine + homme + contrat + pcs + age, family = binomial(link = "probit"), data = lastq)
 summary(probit_model) # we interpret the sign and the significance of the coefficients, but not their values 
 
 # Average Marginal Effects
