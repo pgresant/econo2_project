@@ -148,57 +148,15 @@ summary(m3)
 ```
 
 ```{r}
-m4 <- lm(logsalhoraire ~ homme + age + age2 + origine + contrat, data = lastq_emp)
+m4 <- lm(logsalhoraire ~ homme + age + age2 + origine + contrat + csp, data = lastq_emp)
 summary(m4)
 ```
 
 ```{r}
-m5 <- lm(logsalhoraire ~ homme + age + age2 + origine + contrat + csp, data = lastq_emp)
+m5 <- lm(logsalhoraire ~ homme + age + age2 + origine + contrat + csp +, data = lastq_emp)
 summary(m5)
 ```
 
-```{r q1_formulas}
-# Regressions
-orig_variables <- paste0("orig_", origines, collapse = " + ")
-educ_variables <- paste0("educ_", c(1,3,4,5,6), collapse = " + ")
-contrat_variables <- "contrat_0 + contrat_2 + contrat_4"
-csp_variables     <- "csp_4 + csp_5 + csp_6"
-
-# M1 : sans éducation
-f_m1 <- as.formula(paste("logsalhoraire ~ homme_num + age_num + age2 +", orig_variables))
-
-# M2 : avec éducation (variable d'intérêt principale)
-f_m2 <- as.formula(paste("logsalhoraire ~ homme_num + age_num + age2 +",
-                          educ_variables, "+", orig_variables))
-
-# M3 : avec éducation + type de contrat + CSP (analyse des canaux)
-f_m3 <- as.formula(paste("logsalhoraire ~ homme_num + age_num + age2 +",
-                          educ_variables, "+", orig_variables, "+",
-                          contrat_variables, "+", csp_variables))
-
-# M4 : salaire en niveau (pas log) — pour comparaison Q1b
-f_m4 <- as.formula(paste("salhoraire ~ homme_num + age_num + age2 +",
-                          educ_variables, "+", orig_variables))
-```
-
-```{r}
-last_q$contratfact <- as.factor(last_q$contrat)
-mod1 <- lm(logsalhoraire ~ homme_num + contrat + origines, data = last_q)
-summary(mod1)
-```
-
-```{r q1_ols}
-# Estimation OLS with obust standard error HC1 
-m1 <- lm(f_m1, data = last_q)
-m2 <- lm(f_m2, data = last_q)
-m3 <- lm(f_m3, data = last_q)
-m4 <- lm(f_m4, data = last_q)
-
-coeftest(m1, vcov = vcovHC(m1, type = "HC1"))
-coeftest(m2, vcov = vcovHC(m2, type = "HC1"))
-coeftest(m3, vcov = vcovHC(m3, type = "HC1"))
-coeftest(m4, vcov = vcovHC(m4, type = "HC1"))
-```
 
 **Explications**
 
@@ -244,18 +202,28 @@ lastq <- lastq %>% mutate(act = ifelse(lastq$acteu == "Employed", 1, 0))
 
 We begin by estimating a probit model. 
 ```{r}
-model <- glm(act ~ origine, family = binomial(link = "probit"), data = lastq)
-summary(model)
+probit_model <- glm(act ~ origine, family = binomial(link = "probit"), data = lastq)
+summary(probit_model) # we interpret the sign and the significance of the coefficients, but not their values 
+
+# Average Marginal Effects
+AME_probit <- margins(probit_model)
+summary(AME_probit)
+
 ```
 
 We estimate a logit model. 
 ```{r}
-model <- glm(act ~ origine, family = binomial(link = "logit"))
-summary(model)
+logit_model <- glm(act ~ origine, family = binomial(link = "logit"), data = lastq)
+summary(logit_model) # we interpret the sign and the significance of the coefficients, but not their values 
+
+# Average Marginal Effects
+AME_logit <- margins(logit_model)
+summary(AME_logit)
 ```
 
 Question 6c : 
 
+We create the indicator of having a higher education degree (modality "1" of the variable education in the dataset). 
 ```{r}
 lastq <- lastq %>% mutate(highdegree = ifelse(lastq$education == ">Bac+2", 1, 0))
 # Checking
