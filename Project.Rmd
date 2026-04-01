@@ -23,6 +23,7 @@ library(plm)
 library(margins)     
 library(stargazer)  
 library(questionr)
+library(estimatr)
 ```
 
 ```{r data, include=FALSE}
@@ -87,7 +88,16 @@ df <- df %>%
 #freq(df$contrat)
 
 # creation of a binary variable 
-df <- df %>% mutate(origine_bin = ifelse(df$origine == "France", "France", ifelse(df$origine == "99", "99", "Autre")) )
+df <- df %>% mutate(origine_bin99 = ifelse(df$origine == "France", "France", ifelse(df$origine == "99", "Not Stated", "Autre")) )
+df <- df %>% mutate(origine_bin = ifelse(df$origine == "France", "France", "Autre")) # we are making the assumpitons that people who do not state their nationalities were not french people. 
+
+df <- df %>% mutate(origine_cat = case_when(
+  origine == "France" ~ "France",
+  origine %in% c("Rest of Africa","Maghreb", "Middle East" ) ~ "Africa_ME" ,
+  origine %in% c("Southern Europe", "Eastern Europe") ~ "Europe_S_E" ,
+  origine %in% c("Southern Asia", "Rest of the world") ~ "Rest of the world" ,
+  origine %in% c("Nothern Europe") ~ "Nothern Europe" ,
+  origine %in% c("99") ~ "Not_Stated"))
 
 # We are going to recode some variables in the data set so that we can use them later in our project
 class(df$salhoraire) # verification of the class of the dependent variables 
@@ -96,7 +106,7 @@ class(df$logsalhoraire)
 vars_num <- c("age")
 df[vars_num] <- lapply(df[vars_num], as.numeric) # We convert continous variables into numbers, in order to use them in regressions
 
-vars_cat <- c("education", "origine", "contrat", "csp_actif", "csp_mere", "csp_pere", "acteu", "homme", "origine_bin")
+vars_cat <- c("education", "origine", "contrat", "csp_actif", "csp_mere", "csp_pere", "acteu", "homme", "origine_bin", "origine_bin99", "origine_cat")
 df[vars_cat] <- lapply(df[vars_cat], as.factor) # We convert categorical variables to factor, in order to use them in regressions
 
 # We precise the category of reference
@@ -106,11 +116,30 @@ df$origine_bin <- relevel(df$origine_bin, ref = "France") # la catégorie aucun 
 df$education <- relevel(df$education, ref = "Aucun")# la catégorie 7 est la plus fréquente mais bon ...je pense on eput changer selon le subdataset
 df$contrat <- relevel(df$contrat, ref = "CDI") # category la plus fréquente
 df$csp_actif <- relevel(df$csp_actif, ref = "Service employees") # category la plus fréquente$
-
+df$origine_cat <- relevel(df$origine_cat, ref = "France")
+df$origine_bin99 <- relevel(df$origine_bin99, ref = "France")
+df$origine_bin <- relevel(df$origine_bin, ref = "France")
 # We create some variables 
 df$age2 <- df$age^2
 ```
 
+Some descriptive statistics in order to understand the dataset
+```{r}
+table(df$immi, df$nat)
+```
+According to INSEE, an immigrant is a person born abroad who is a foreign national and resides in France
+There is 1956 individualxquarter French people that are immigrants. Some immigrants have been able to become French citizens, whilst others remain foreign nationals. Indeed, immigrant status is permanent. 
+
+```{r}
+table(df$descimmi, df$origine)
+```
+People who have at least one parent that held a different nationality than the French nationality can be a descendants of immigrant(s) (their parents are immigrants, meaning that they are born abroad without the French nationality). 
+The other part of people who have at least one parent that held a different nationality than the French nationality are not descendant of immigrant (their parent do not held the French nationality but are born in France). 
+
+```{r}
+cprop(table(df$immi, df$origine_bin))
+```
+53,2% of the individualsxquartier who have at least one parent that held a different nationality than the French nationality are immigrant, meaning they are are born abroad without the French nationality. 
 
 # 1. Intensive Margin (Net Hourly Wage)
 
@@ -138,8 +167,18 @@ freq(lastq_emp$origine)
 We estimate several models, using the function lm_robust (instead of lm), to compute heteroscedasticity-robust standard errors. Indee, we are not sure that the homoscedasticity asumptions holds here. 
 
 ```{r}
-m1 <- lm_robust(logsalhoraire ~ origine, data = lastq_emp)
+m1 <- lm(logsalhoraire ~ origine*immi, data = lastq_emp)
 summary(m1)
+```
+
+```{r}
+m1.2 <- lm(logsalhoraire ~ origine_cat, data = lastq_emp)
+summary(m1.2)
+```
+
+```{r}
+m1.3 <- lm(logsalhoraire ~ origine_bin, data = lastq_emp)
+summary(m1.3)
 ```
 
 ```{r}
