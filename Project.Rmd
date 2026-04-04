@@ -24,6 +24,7 @@ library(margins)
 library(stargazer)  
 library(questionr)
 library(estimatr)
+library(modelsummary)
 ```
 
 ```{r data, include=FALSE}
@@ -89,11 +90,30 @@ df <- df %>%
 
 # creation of a binary variable 
 df <- df %>% mutate(origine_bin99 = ifelse(df$origine == "France", "France", ifelse(df$origine == "99", "Not Stated", "Autre")) )
-df <- df %>% mutate(origine_bin = ifelse(df$origine == "France", "France", "Autre")) # we are making the assumpitons that people who do not state their nationalities were not french people. 
+df <- df %>% mutate(origine_bin = ifelse(df$origine == "France", 0, 1)) # we are making the assumptions that people who do not state their nationalities were not french people. 
+
+df <- df %>% mutate(origine_cat2 = case_when(
+  origine == "France" ~ "France",
+  origine %in% c("Rest of Africa","Maghreb", "Middle East") ~ "Africa_ME" ,
+  origine %in% c("Southern Europe", "Eastern Europe") ~ "Europe_S_E" ,
+  origine %in% c("Southern Asia", "Rest of the world") ~ "Rest of the world" ,
+  origine %in% c("Nothern Europe") ~ "Nothern Europe" ,
+  origine %in% c("99") ~ "Not_Stated"))
+
+df <- df %>% mutate(origine_cat3 = case_when(
+  origine == "France" ~ "France",
+  origine == "Middle East" ~ "Middle East",
+  origine %in% c("Rest of Africa","Maghreb") ~ "Africa" ,
+  origine %in% c("Southern Europe", "Eastern Europe") ~ "Europe_S_E" ,
+  origine %in% c("Southern Asia", "Rest of the world") ~ "Rest of the world" ,
+  origine %in% c("Nothern Europe") ~ "Nothern Europe" ,
+  origine %in% c("99") ~ "Not_Stated"))
 
 df <- df %>% mutate(origine_cat = case_when(
   origine == "France" ~ "France",
-  origine %in% c("Rest of Africa","Maghreb", "Middle East" ) ~ "Africa_ME" ,
+  origine == "Middle East" ~ "Middle East", # 30 individuals in lastq_emp
+  origine %in% c("Rest of Africa") ~ "Rest of Africa", # 61 individuals in lastq_emp
+   origine %in% c("Maghreb") ~ "Maghreb", # 122 individuals in lastq_emp
   origine %in% c("Southern Europe", "Eastern Europe") ~ "Europe_S_E" ,
   origine %in% c("Southern Asia", "Rest of the world") ~ "Rest of the world" ,
   origine %in% c("Nothern Europe") ~ "Nothern Europe" ,
@@ -103,10 +123,10 @@ df <- df %>% mutate(origine_cat = case_when(
 class(df$salhoraire) # verification of the class of the dependent variables 
 class(df$logsalhoraire)
 
-vars_num <- c("age")
+vars_num <- c("age", "origine_bin")
 df[vars_num] <- lapply(df[vars_num], as.numeric) # We convert continous variables into numbers, in order to use them in regressions
 
-vars_cat <- c("education", "origine", "contrat", "csp_actif", "csp_mere", "csp_pere", "acteu", "homme", "origine_bin", "origine_bin99", "origine_cat")
+vars_cat <- c("education", "origine", "contrat", "csp_actif", "csp_mere", "csp_pere", "acteu", "homme", "origine_bin99", "origine_cat")
 df[vars_cat] <- lapply(df[vars_cat], as.factor) # We convert categorical variables to factor, in order to use them in regressions
 
 # We precise the category of reference
@@ -127,8 +147,8 @@ Some descriptive statistics in order to understand the dataset
 ```{r}
 table(df$immi, df$nat)
 ```
-According to INSEE, an immigrant is a person born abroad who is a foreign national and resides in France
-There is 1956 individualxquarter French people that are immigrants. Some immigrants have been able to become French citizens, whilst others remain foreign nationals. Indeed, immigrant status is permanent. 
+According to INSEE, an immigrant is a person born abroad who is a foreign national and resides in France.
+There is 1956 individual*quarter French people that are immigrants. Some immigrants have been able to become French citizens, whilst others remain foreign nationals. Indeed, immigrant status is permanent. 
 
 ```{r}
 table(df$descimmi, df$origine)
@@ -154,6 +174,14 @@ lastq_emp <- df %>%
 
 cat("N =", nrow(lastq_emp), "employed individuals with observed salary \n")
 summary(lastq_emp$logsalhoraire) # no NA in the dependent variable
+
+freq(lastq_emp$annee) # 42% of the observation are made in 2015, 58% in 2016
+table(lastq_emp$annee, lastq_emp$trimestre) 
+prop(table(lastq_emp$annee, lastq_emp$trimestre)) 
+
+# to take into account the effect of the time gap between the observation, we add an indicator
+lastq_emp <- lastq_emp %>% mutate(indic2016 = ifelse(lastq_emp$annee == 2016, 1, 0))
+freq(lastq_emp$indic2016) # OK 
 ```
 
 ```{r q1_stats}
@@ -162,46 +190,127 @@ summary(last_q$logsalhoraire)
 
 # Distribution of origin within employed individuals
 freq(lastq_emp$origine)
-```
 
-We estimate several models, using the function lm_robust (instead of lm), to compute heteroscedasticity-robust standard errors. Indee, we are not sure that the homoscedasticity asumptions holds here. 
+# descrptive statistics 
+rprop(table(lastq_emp$origine, lastq_emp$immi))
+cprop(table(lastq_emp$origine, lastq_emp$immi))
+
+```
+In the subset, arounf 75% of the individuals with at least one parent with an African nationality (except Maghrebian) or a Middle East one are immigrant, whereas it's 47% for Magrhebian and Eastern Europe origins, 30% for Northern and Southern European orgins.  
+
+This tendancy is confirmed by the second table : in the immigrant population, there 20% of people with at least one parent with an Maghrebian nationality, 17% with an african nationality and 25% with southern european nationality. 
+
+We estimate several models, using the function lm_robust (instead of lm), to compute heteroscedasticity-robust standard errors. Indee, we are not sure that the homoscedasticity assumptions holds here.
 
 ```{r}
-m1 <- lm(logsalhoraire ~ origine*immi, data = lastq_emp)
-summary(m1)
+m1 <- lm_robust(logsalhoraire ~ indic2016 + origine, data = lastq_emp)
+summary(m1) # do not put the * of significance 
+modelsummary(m1, stars = TRUE) # allow us to see the * of significance  
+
+m1.1 <- lm_robust(logsalhoraire ~ origine, data = lastq_emp)
+summary(m1) ; summary(m1.1) # to compare the 2 models easily 
+modelsummary(m1, stars = TRUE) 
 ```
+The estimator of the coefficient of indic2016 is very low (<0,01) and not significant at 10%. The Ajusted R-squared is lower in the odel with the indicator than the other. So, we will not include this variable in the next models. 
+
+In the first regression (m1.1), we regress only the logarithm of wages on origin. The coefficients that are significant at 5% of level of risk are those for the Northern European origin (+0.119), the rest of Africa (-0.177) and South Asia (-0.151). The coefficient of the origin of Middle East origin (+0,09) is significant at the 10% level, but it's less relevant than the others. This can be interpreted as follows: an employee of South Asian origin earns approximately 15% less than an employee of French origin, in average. We can underline that the coefficient of the Maghreb origin has a p-value equal to 10,12%, meaning that it is not significant at 10% level, but not so far from this level. 
+
+Considering the effectifs and the result of the regression, we did the agregation of the variable seen upper in the code. It was necessary to agregated some categories, in order to get effectifs enough large to have be significate, when we will add other variables.
+We regrouped : Southern Asia and the Rest of the world ; Easter Europe and Southern Europe, only to see the effect, and to have around 30 indivuals at least in each category. It would be possible after, to agregate the categories Southern Asia and the Rest of the world with the Not Stated (99), in terms of effect. 
 
 ```{r}
-m1.2 <- lm(logsalhoraire ~ origine_cat, data = lastq_emp)
+m1.2 <- lm_robust(logsalhoraire ~ origine_cat, data = lastq_emp)
 summary(m1.2)
+freq(lastq_emp$origine_cat)
 ```
+These results where expected.  
 
 ```{r}
-m1.3 <- lm(logsalhoraire ~ origine_bin, data = lastq_emp)
+m1.3 <- lm_robust(logsalhoraire ~ origine_bin, data = lastq_emp)
 summary(m1.3)
 ```
+The dummy variable origin is significant at the 5% level. An employee of that have at least on parent who do not held the french Nationality earns approximately 3% less than an employee of French origin, in average and without variable of control. This can be interesting for us, in order to have an aggregated of this social condition, but it is not precise enough. 
+
 
 ```{r}
-m2 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine, data = lastq_emp)
-summary(m2)
+m2 <- lm_robust(logsalhoraire ~ immi + origine, data = lastq_emp)
+m2.1 <- lm_robust(logsalhoraire ~ immi + origine_bin, data = lastq_emp)
+m2.2 <- lm_robust(logsalhoraire ~ immi + origine_cat, data = lastq_emp)
+summary(m2); summary(m2.1) ; summary(m2.2)
 ```
+When we control by the dummy variable "immi", the origin is not . 
+- In model 2.1, the variable origin is not statistically significant.  
+- In model 2.2, the variable of the African origin is not significant anymore. The only significant variable are the open of Nothern European origin and Not Stated, that are more significant than before (at level 1%), and the coefficient are more important for the Northern origin (+3 point of pourcentage), meaning that the effect of this origin is broader when controlling by the immigration status. The variable of the middle East origin is significant at 10%.
+- In model 2, 
+
+Pb d'endogéniété car plusieurs corrélation entre les régresseurs. on risque ici d'ajouter un biais de variable incluse. Donc on le rajoute pa la variable immi en controle. Néanmoins, une variable d'interaction pourrait etre pertinente. 
+=> ou alors on parle de cannal ntm pr les personnes africa origin??
+
+We add an interaction variable in the model. 
+```{r}
+m2.3 <- lm_robust(logsalhoraire ~ immi*origine_cat, data = lastq_emp)
+summary(m2.3)
+```
+Rien est significatif. pb effectif et biais variable incluse potentiel. on garde pas cette specification qui n'est pas pertinente. 
 
 ```{r}
-m3 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine + contrat, data = lastq_emp)
+m3 <- lm_robust(logsalhoraire ~ origine_cat + homme + age + age2 + contrat, data = lastq_emp)
 summary(m3)
 ```
+In this model, we regress only the logarithm of wages against gender, age, age squared, and origin. 
+In absolute value, the coefficients : 
+- increase for Middle East origin and Northern Europe origin variables.
+- decrease for the Rest of Africa and Rest of the world origin variables.  
+
+En termes de significativité statistique : -
+- la variable d'origine du Middle East devient statistiquement significative à 10%, 
+- la variable d'origine Rest of africa reste statistiquement significative à 5% (p-value of 1,06%). 
+- la variable d'origine d'Europe du Nord est toujours statistiquement significative à 1%. 
 
 ```{r}
-m4 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine + contrat + csp, data = lastq_emp)
+m4 <- lm_robust(logsalhoraire ~ origine + homme + age + age2 + csp_actif, data = lastq_emp)
 summary(m4)
 ```
 
+In this model, we regress only the logarithm of wages against gender, age, age squared, and origin. 
+In absolute value, the coefficients : 
+- decrease for Middle East origin, Northern Europe, and Rest of the world origin variables. origin variables.
+- increase for the Rest of Africa   
+
+En termes de significativité statistique : -
+- la variable d'origine du Middle East is not statiscally significant at 10%, 
+- la variable d'origine Rest of africa reste statistiquement significative à 5%. 
+- la variable d'origine d'Europe du Nord reste statistiquement significative à 5%.  
+
+The R-squared is much higjer in this model than the precedent one. 
 ```{r}
-m5 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine + contrat + csp +, data = lastq_emp)
+m5 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine_cat + contrat + csp_actif, data = lastq_emp)
 summary(m5)
 ```
 
+Les effecitfs ne sont pas assez grands pour avoir autant de variables de contrôle et conserver une inférence robuste.  
 
+```{r}
+m6 <- lm_robust(logsalhoraire ~ origine + education + homme + age + age2 + csp_actif, data = lastq_emp)
+summary(m6)
+```
+correlation entre education et entre csp_actif (mais très agrégé)
+
+Comparing to the model 4, in this model : 
+
+In absolute value, the coefficients : 
+- decrease for Rest of Africa, Northern Europe, Rest of the worl and Not stated origin variables. 
+
+En termes de significativité statistique : -
+- la variable d'origine du Middle East is not statiscally significant at 10%,
+- la variable d'origine Rest of africa reste statistiquement significative à 10%. 
+- la variable d'origine d'Europe du Nord reste statistiquement significative à 5%.  
+- the variable of origin Southern Europe significant à 5%, which was not the case in the previous model. 
+
+```{r}
+m7 <- lm_robust(salhoraire ~ homme + age + age2 + origine + csp_actif, data = lastq_emp)
+summary(m7)
+```
 
 **Explications**
 
