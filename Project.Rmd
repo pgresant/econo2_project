@@ -339,6 +339,61 @@ For the final regression, we take wage as the dependent variable directly, and a
 In conclusion, wage gaps gradually narrow as we add controls. The only group for which the gap persists after controls is Southern Europe (with a coefficient of +6% in the third regression). So, at first glance, origin acts mainly through observable channels (level of education, type of employment), rather than through direct discrimination when the job and qualifications are identical.
 
 
+**Question 2**
+*Question 2a*
+Education is a potentially endogeneous variable in the regression. Indeed, the level of education of an individual partly results from his/her own choices, which are influenced by unobservable charateristics (such as family cultural capital, ability, motivation, ...). Theses characteristics also directly affect wages. Then, we expect that the correlation between education and the residual is not null, which violates the exogeneity assumption required for OLS to be consistent. Including education in the model therefore introduces an endogeneity bias, and then, the OLS etimator of the education coefficient does not converge to the true causal effect. 
+
+Furthermore, origin and education are correlated. Individuals from certain origin groups have on average lower educational attainment, due to inequalities in access to education. Then, part of the origin on wages operates through the education channel (origin affects education, which in turn affects wages). 
+By comparing the short and long regression, including or not the education, we have : 
+- when education is omitted in the regression , the origin coefficient captures both the direct effect of origin and its indirect effect through education.
+- when education is included in the regression, the origin coefficient is interpreted as the effect of origin conditional on education level. But, as education is endogeneous, the conditional effects is itself biased. In addition, by conditioning on education, we are absorbing part of the total effect of origin on wages : the estimated origin coefficient therefore measures only the direct effect of origin on wages, net of education, and underestimates the total wage inequality due to origin. 
+
+By the omitted variable bias formula (Frisch-Waught):
+
+$$\tilde{\beta}_{origine} = \beta_{origine} + \beta_{educ} \cdot \delta$$
+
+where $\tilde{\beta}_{origine}$ is the coefficient of origin in the short regression of wages on origin ; $\beta_{origine}$ is the coefficient of origin in the long regression of wages on origin and education ; and $\delta = \frac{Cov(educ, origine)}{Var(origine)}$ is the coefficient of the regression of education on origin. As $\beta_{educ} > 0$ and $\delta < 0$ for disadvantaged groups, the bias is negative : we over-estimate in absolute value the wage's disadvantage of theses groups when we omit education. In this case, we attribute the disadvantage for the origins, where it is partly because theses individuals have less education levels, in mean. When we control by education, disadvantage due to origin decreases. 
+
+*Question 2b*
+
+We can choose the variables csp_pere and csp_mere (socio-professional category of the father and mother) as instrumental variables for education. We the construct four binary instruments by regrouping the categories along the PCS nomenclature : 
+
+- father_manager : the father is a senior manager or professional (codes 31 (liberal professions), 33 (senior civil servants), 34 (professors and scientific professions), 35 (information, arts, and entertainment professions), 37 (senior administrative and commercial managers in companies), 38 (engineers and senior technical managers in companies))
+- mere_manager : the mother is a senior manager or professional (same codes)
+- pere_worker : the father is a manual worker (codes 62 (skilled industrial workers), 63 (skilled craft workers), 64 (drivers), 65 (skilled handling, ware-housing, and transport workers), 67 (unskilled industrial workers), 68 (unskilled craft workers), 69 (agricultural workers))
+- mere_worker : the mother is a manual worker (same codes)
+
+```{r}
+manager   <- c(31, 33, 34, 35, 37, 38)
+worker <- c(62, 63, 64, 65, 67, 68, 69)
+
+last_q <- last_q %>%
+  mutate(
+    csp_pere_num = suppressWarnings(as.numeric(as.character(csp_pere))),
+    csp_mere_num = suppressWarnings(as.numeric(as.character(csp_mere))),
+    father_manager   = as.numeric(csp_pere_num %in% manager),
+    mother_manager   = as.numeric(csp_mere_num %in% manager),
+    father_worker = as.numeric(csp_pere_num %in% worker),
+    mother_worker = as.numeric(csp_mere_num %in% worker)
+  ) %>%
+  filter(!is.na(father_manager), !is.na(mother_manager))
+```
+  
+
+Discussion of the validity of the instruments : 2 conditions for an instrumental variable : 
+
+1) relevance condition (i.e. cov(instrument, education) not egual to 0)
+In the sociological and economic literature, we know that parental socio-professional category is highly correlated with the educational attainment of children. Children of senior managers and professionals (cadres) have substantially higher probabilities of attaining higher education, while children of manual workers have substantially lower probabilities. 
+Emprically we will confirm that by the first-stage F-statistic
+
+2) exogeneity condition (i.e. cov (instrument, residuals) = 0)
+This condition requires that parental ctageory socio-professionnal affects the individual's wagee only through the education channel, and not directly.
+
+The respect of this condition is more debatable, because it remains social capital transmission : for example, children of senior managers may benefit from parental networks, job referrals, or behavioural norms that directly improve their labour market outcomes independently of the diploma they hold. In that case, the instrument is invalid.
+
+*Question 2c*
+
+
 
 # 2. Extensive Margin (Employed vs. Unemployed)
 
