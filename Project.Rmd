@@ -109,15 +109,27 @@ df <- df %>% mutate(origine_cat3 = case_when(
   origine %in% c("Nothern Europe") ~ "Nothern Europe" ,
   origine %in% c("99") ~ "Not_Stated"))
 
-df <- df %>% mutate(origine_cat = case_when(
+df <- df %>% mutate(origine_cat4 = case_when(
   origine == "France" ~ "France",
   origine == "Middle East" ~ "Middle East", # 30 individuals in lastq_emp
   origine %in% c("Rest of Africa") ~ "Rest of Africa", # 61 individuals in lastq_emp
-   origine %in% c("Maghreb") ~ "Maghreb", # 122 individuals in lastq_emp
+  origine %in% c("Maghreb") ~ "Maghreb", # 122 individuals in lastq_emp
   origine %in% c("Southern Europe", "Eastern Europe") ~ "Europe_S_E" ,
   origine %in% c("Southern Asia", "Rest of the world") ~ "Rest of the world" ,
   origine %in% c("Nothern Europe") ~ "Nothern Europe" ,
   origine %in% c("99") ~ "Not_Stated"))
+
+df <- df %>% mutate(origine_cat = case_when(
+  origine == "France" ~ "France",
+  origine == "Middle East" ~ "Middle East", # 30 individuals in lastq_emp
+  origine %in% c("Rest of Africa") ~ "Rest of Africa", # 61 individuals in lastq_emp
+  origine %in% c("Maghreb") ~ "Maghreb", # 122 individuals in lastq_emp
+  origine %in% c("Southern Europe") ~ "Southern Europe",
+  origine %in% c("Eastern Europe") ~ "Eastern Europe",
+  origine %in% c("Southern Asia", "Rest of the world") ~ "Rest of the world" ,
+  origine %in% c("Nothern Europe") ~ "Nothern Europe" ,
+  origine %in% c("99") ~ "Not_Stated"))
+
 
 # We are going to recode some variables in the data set so that we can use them later in our project
 class(df$salhoraire) # verification of the class of the dependent variables 
