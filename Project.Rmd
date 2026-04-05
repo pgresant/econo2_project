@@ -356,7 +356,7 @@ Education is a potentially endogeneous variable in the regression. Indeed, the l
 Furthermore, origin and education are correlated. Individuals from certain origin groups have on average lower educational attainment, due to inequalities in access to education. Then, part of the origin on wages operates through the education channel (origin affects education, which in turn affects wages). 
 By comparing the short and long regression, including or not the education, we have : 
 
-- when education is omitted in the regression , the origin coefficient captures both the direct effect of origin and its indirect effect through education.
+- when education is omitted in the regression, the origin coefficient captures both the direct effect of origin and its indirect effect through education.
 - when education is included in the regression, the origin coefficient is interpreted as the effect of origin conditional on education level. But, as education is endogeneous, the conditional effects is itself biased. In addition, by conditioning on education, we are absorbing part of the total effect of origin on wages : the estimated origin coefficient therefore measures only the direct effect of origin on wages, net of education, and underestimates the total wage inequality due to origin. 
 
 By the omitted variable bias formula (Frisch-Waught):
@@ -418,9 +418,7 @@ This condition requires that parental ctageory socio-professionnal affects the i
 The respect of this condition is more debatable, because it remains social capital transmission : for example, children of senior managers may benefit from parental networks, job referrals, or behavioural norms that directly improve their labour market outcomes independently of the diploma they hold. In that case, the instrument is invalid.
 
 To identify a model with instrumental variables, the number of instruments must be superior or equal to the number of endogeneous variables. Here, we have only one variable endogeneous (education), and 4 instruments. That improves first-stage precision and allows us to test the joint validity of the instruments via the Sargan-Hansen test. The null hypothesis of this test is that all instruments are valid. 
-```{r}
-summary(iv_model, diagnostics = TRUE)
-```
+
 *Question 2c*
 
 First stage
@@ -474,7 +472,39 @@ iv_model <- iv_robust(
 )
 summary(iv_model, diagnostics = TRUE)
 ```
-The coefficient of education_num is significative at 1% level and negative, which is consistent with the expected relationship between education and wages (as the level of education increases, so does the wage)
+The coefficient of education_num is significative at 1% level and negative, which is consistent with the expected relationship between education and wages (as the level of education increases, so does the wage).
+
+We will compare the OLS estimator of the coefficient of education_num in the OLS regression m6 ; and the 2SLS coefficient of the last regression. 
+```{r}
+# m6 0LS regression with education_num 
+m6_num <- lm_robust(
+  logsalhoraire ~ origine + education_num + homme + age + age2 + csp_actif,
+  se_type = "stata",
+  data = lastq_emp
+)
+summary(m6_num)
+
+# comparison between OLS and 2SLS
+library(texreg)
+screenreg(
+  list(m6_num, iv_model),
+  custom.model.names = c("OLS", "2SLS"),
+  digits = 4
+)
+```
+*Question 2d*
+
+By comparing the OLS and 2SLS estimates, we can assess the impact of correcting for the endogeneity of education. The coefficient on education_num is larger in absolute value in the 2SLS specification (−0.088) than in OLS (−0.052), suggesting that OLS underestimated the causal return to education. Based on the 2SLS regression, all other things being equal, moving down one educational level reduces earnings by around 8.8%. 
+
+Regarding origin, the coefficients are stable between OLS and 2SLS. No origin group changes significance category substantially. Theses results confirm that the endogeneity bias of education does not distort the estimated origin wage gaps. 
+Southern European origin remains positively significant in both specifications (+5.2% in OLS, +6.6% in 2SLS). Based on the 2SLS regression, all other things being equal (in terms of education, gender, age and socio-professional category), a person of Southern European origin earns on average 6.6% more than a person of French origin.
+
+For other origin groups, no significant negative wage penalty is detected once education and occupational category are controlled for.
+Then, adjusting for the endogeneity of education does not substantially alter our conclusions regarding wage inequalities linked to origins.
+
+However, the exogeneity condition for the instruments (parents’ socio-economic status) remains impossible to verify directly. If parents’ socio-economic status transmits social capital beyond education, the 2SLS estimates remain biased. 
+
+
 # 2. Extensive Margin (Employed vs. Unemployed)
 
 ```{r}
