@@ -88,9 +88,19 @@ df <- df %>%
     )
 #freq(df$contrat)
 
-# creation of a binary variable 
-df <- df %>% mutate(origine_bin99 = ifelse(df$origine == "France", "France", ifelse(df$origine == "99", "Not Stated", "Autre")) )
-df <- df %>% mutate(origine_bin = ifelse(df$origine == "France", 0, 1)) # we are making the assumptions that people who do not state their nationalities were not french people. 
+df <- df %>% mutate(
+  
+  origine_bin = ifelse(origine == "France", "France", "Etranger"),
+  # We make the assumption that individuals who do not state 
+  # their nationalities are treated as non-French
+  
+  origine_bin99 = case_when(
+    origine == "France" ~ "France",
+    origine == "99"     ~ "Not Stated",
+    TRUE                ~ "Etranger"
+  )  # in the binary variable origine_bin99 we do not make the assumption that individuals whom origin is unknown are foreigners. We create a third category.
+  
+)
 
 df <- df %>% mutate(origine_cat2 = case_when(
   origine == "France" ~ "France",
@@ -135,10 +145,10 @@ df <- df %>% mutate(origine_cat = case_when(
 class(df$salhoraire) # verification of the class of the dependent variables 
 class(df$logsalhoraire)
 
-vars_num <- c("age", "origine_bin")
+vars_num <- c("age")
 df[vars_num] <- lapply(df[vars_num], as.numeric) # We convert continous variables into numbers, in order to use them in regressions
 
-vars_cat <- c("education", "origine", "contrat", "csp_actif", "csp_mere", "csp_pere", "acteu", "homme", "origine_bin99", "origine_cat")
+vars_cat <- c("education", "origine", "contrat", "csp_actif", "csp_mere", "csp_pere", "acteu", "homme", "origine_bin99", "origine_cat", "origine_bin")
 df[vars_cat] <- lapply(df[vars_cat], as.factor) # We convert categorical variables to factor, in order to use them in regressions
 
 # We precise the category of reference
@@ -300,7 +310,7 @@ m5 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine_cat + contrat + csp
 summary(m5)
 ```
 
-Les effecitfs ne sont pas assez grands pour avoir autant de variables de contrôle et conserver une inférence robuste.  
+Les effectifs ne sont pas assez grands pour avoir autant de variables de contrôle et conserver une inférence robuste.  
 
 ```{r}
 m6 <- lm_robust(logsalhoraire ~ origine + education + homme + age + age2 + csp_actif, data = lastq_emp)
@@ -341,10 +351,11 @@ In conclusion, wage gaps gradually narrow as we add controls. The only group for
 
 **Question 2**
 *Question 2a*
-Education is a potentially endogeneous variable in the regression. Indeed, the level of education of an individual partly results from his/her own choices, which are influenced by unobservable charateristics (such as family cultural capital, ability, motivation, ...). Theses characteristics also directly affect wages. Then, we expect that the correlation between education and the residual is not null, which violates the exogeneity assumption required for OLS to be consistent. Including education in the model therefore introduces an endogeneity bias, and then, the OLS etimator of the education coefficient does not converge to the true causal effect. 
+Education is a potentially endogeneous variable in the regression. Indeed, the level of education of an individual partly results from his/her own choices, which are influenced by unobservable charateristics (such as family cultural capital, ability, motivation, ...). Theses characteristics also directly affect wages. Then, we expect that the correlation between education and the residuals is not null, which violates the exogeneity assumption required for OLS to be consistent. Including education in the model therefore introduces an endogeneity bias, and then, the OLS estimator of the education coefficient does not converge to the true causal effect. 
 
 Furthermore, origin and education are correlated. Individuals from certain origin groups have on average lower educational attainment, due to inequalities in access to education. Then, part of the origin on wages operates through the education channel (origin affects education, which in turn affects wages). 
 By comparing the short and long regression, including or not the education, we have : 
+
 - when education is omitted in the regression , the origin coefficient captures both the direct effect of origin and its indirect effect through education.
 - when education is included in the regression, the origin coefficient is interpreted as the effect of origin conditional on education level. But, as education is endogeneous, the conditional effects is itself biased. In addition, by conditioning on education, we are absorbing part of the total effect of origin on wages : the estimated origin coefficient therefore measures only the direct effect of origin on wages, net of education, and underestimates the total wage inequality due to origin. 
 
@@ -359,42 +370,111 @@ where $\tilde{\beta}_{origine}$ is the coefficient of origin in the short regres
 We can choose the variables csp_pere and csp_mere (socio-professional category of the father and mother) as instrumental variables for education. We the construct four binary instruments by regrouping the categories along the PCS nomenclature : 
 
 - father_manager : the father is a senior manager or professional (codes 31 (liberal professions), 33 (senior civil servants), 34 (professors and scientific professions), 35 (information, arts, and entertainment professions), 37 (senior administrative and commercial managers in companies), 38 (engineers and senior technical managers in companies))
-- mere_manager : the mother is a senior manager or professional (same codes)
-- pere_worker : the father is a manual worker (codes 62 (skilled industrial workers), 63 (skilled craft workers), 64 (drivers), 65 (skilled handling, ware-housing, and transport workers), 67 (unskilled industrial workers), 68 (unskilled craft workers), 69 (agricultural workers))
-- mere_worker : the mother is a manual worker (same codes)
+- mother_manager : the mother is a senior manager or professional (same codes)
+- father_worker : the father is a manual worker (codes 62 (skilled industrial workers), 63 (skilled craft workers), 64 (drivers), 65 (skilled handling, ware-housing, and transport workers), 67 (unskilled industrial workers), 68 (unskilled craft workers), 69 (agricultural workers))
+- mother_worker : the mother is a manual worker (same codes)
 
 ```{r}
 manager   <- c(31, 33, 34, 35, 37, 38)
 worker <- c(62, 63, 64, 65, 67, 68, 69)
 
-last_q <- last_q %>%
+lastq_emp <- lastq_emp %>%
   mutate(
-    csp_pere_num = suppressWarnings(as.numeric(as.character(csp_pere))),
+    csp_pere_num = suppressWarnings(as.numeric(as.character(csp_pere))), # the values are converted to characters and then to numbers
     csp_mere_num = suppressWarnings(as.numeric(as.character(csp_mere))),
     father_manager   = as.numeric(csp_pere_num %in% manager),
     mother_manager   = as.numeric(csp_mere_num %in% manager),
     father_worker = as.numeric(csp_pere_num %in% worker),
     mother_worker = as.numeric(csp_mere_num %in% worker)
   ) %>%
-  filter(!is.na(father_manager), !is.na(mother_manager))
+  filter(!is.na(father_manager), !is.na(mother_manager)) # We only keep the rows where "father_manager" is not missing and "mother_manager" is not missing.
+# other socio-occupational categories are the default category
+
+# We convert education variable into numeric variable (education_num) to make the 2SLS (education_num is then continuous and we have just one endogeneous variable to instrument, that is possible with 4 instruments)
+lastq_emp <- lastq_emp %>%
+  mutate(
+    education_num = case_when(
+      education == ">Bac+2"  ~ 1,
+      education == "Bac+2"   ~ 2,
+      education == "Bac"     ~ 3,
+      education == "CAP-BEP" ~ 4,
+      education == "Brevet"  ~ 5,
+      education == "Aucun"   ~ 6,
+      TRUE                   ~ NA_real_
+    )
+  )
 ```
   
 
 Discussion of the validity of the instruments : 2 conditions for an instrumental variable : 
 
-1) relevance condition (i.e. cov(instrument, education) not egual to 0)
-In the sociological and economic literature, we know that parental socio-professional category is highly correlated with the educational attainment of children. Children of senior managers and professionals (cadres) have substantially higher probabilities of attaining higher education, while children of manual workers have substantially lower probabilities. 
-Emprically we will confirm that by the first-stage F-statistic
+1) Relevance condition (i.e. cov(instrument, education) not equal to 0)
+In the sociological and economic literature, we know that parental socio-professional category is highly correlated with the educational attainment of children. Children of senior managers and professionals have substantially higher probabilities of attaining higher education, while children of manual workers have substantially lower probabilities. 
+Emprically, we will confirm that by the first-stage F-statistic
 
-2) exogeneity condition (i.e. cov (instrument, residuals) = 0)
-This condition requires that parental ctageory socio-professionnal affects the individual's wagee only through the education channel, and not directly.
+2) Exogeneity condition (i.e. cov (instrument, residuals) = 0)
+This condition requires that parental ctageory socio-professionnal affects the individual's wage only through the education channel, and not directly.
 
 The respect of this condition is more debatable, because it remains social capital transmission : for example, children of senior managers may benefit from parental networks, job referrals, or behavioural norms that directly improve their labour market outcomes independently of the diploma they hold. In that case, the instrument is invalid.
 
+To identify a model with instrumental variables, the number of instruments must be superior or equal to the number of endogeneous variables. Here, we have only one variable endogeneous (education), and 4 instruments. That improves first-stage precision and allows us to test the joint validity of the instruments via the Sargan-Hansen test. The null hypothesis of this test is that all instruments are valid. 
+```{r}
+summary(iv_model, diagnostics = TRUE)
+```
 *Question 2c*
 
+First stage
+```{r}
+first_stage <- lm_robust(
+  education_num ~ homme + age + age2 + origine + csp_actif +
+    father_manager + mother_manager + 
+    father_worker  + mother_worker,
+  se_type = "stata",
+  data = lastq_emp
+)
+summary(first_stage)
+```
+
+We examine the coefficients of the four instruments individually in the first-stage regression.
+All four coefficients are statistically significant at the 1% level : father_manager (−0.510, p < 0.001), mother_manager (−0.382, p < 0.001), father_worker (+0.233, p < 0.001) and mother_worker (+0.179, p < 0.01).
+
+The signs are consistent with economic intuition : having a parent who is a senior manager or professional is associated with a higher level of education (lower education_num); while having a parent who is a worker is associated with a lower level of education (higher education_num).
+
+To confirm this formally, we conduct a joint significance test of the four instruments.
+```{r}
+# We use the Wald test with : 
+# H0 : the coefficients for all four instruments are jointly zero (irrelevant instruments)
+# vs H1 : at least one instrument is relevant
+# Simplified model (without instruments)
+first_stage_restricted <- lm_robust(
+  education_num ~ homme + age + age2 + origine + csp_actif,
+  se_type = "stata",
+  data = lastq_emp
+)
+
+waldtest(first_stage, first_stage_restricted)
+
+F_stat <- 201.3 / 4  # Chi² divided by the number of restrictions
+cat("F-stat :", round(F_stat, 2), "\n")
+
+```
+
+The Wald test yields Chi²(4) = 201.3 (p < 0.001), which is equivalent to F ≈ 50.33, far above the conventional threshold of 10. We therefore reject the null hypothesis that the instruments are jointly irrelevant, which confirms that parental socio-professional category is strongly correlated with the individual's education level.
 
 
+Now, we make the 2SLS :
+```{r}
+iv_model <- iv_robust(
+  logsalhoraire ~ homme + age + age2 + origine + csp_actif + education_num |
+                  homme + age + age2 + origine + csp_actif +
+                  father_manager + mother_manager +
+                  father_worker  + mother_worker,
+  se_type = "stata",
+  data = lastq_emp
+)
+summary(iv_model, diagnostics = TRUE)
+```
+The coefficient of education_num is significative at 1% level and negative, which is consistent with the expected relationship between education and wages (as the level of education increases, so does the wage)
 # 2. Extensive Margin (Employed vs. Unemployed)
 
 ```{r}
