@@ -638,6 +638,10 @@ screenreg(
 !! There are only 3 700 observations compared with 4 046 for the MCO and 2SLS v1. The difference is due to the 346 fathers with an unknown socio-professional category (csp_pere = ‘00’).
 
 Correcting for the endogeneity of education increases the estimated return to education in absolute value (from −0.052 in OLS to −0.088 in 2SLS v1 and −0.076 in 2SLS v3), confirming an upward bias in OLS estimates. 
+
+The test : We reject H0 (zero coefficient for level_pere) by a significant margin. The relevance condition is also largely satisfied for 2SLS v3. level_pere alone is a stronger instrument than the four binary instruments combined (its individual F-statistic is three times higher). This is because the ordinal variable captures the continuous variation in parental socio-economic status more effectively, whereas the binary variables captured only the extremes (managers vs workers).
+
+
 Then, the 2SLS v1 model suggests that a one-level increase in educational attainment (for example, moving from a Baccalaureate to a CAP-BEP in our coding) increases wages by approximately 8.8%, compared with 5.2% in the OLS model; whereas the 2SLS v3 model estimates this effect at 7.6%. The difference between the two 2SLS models is moderate and can be explained by the difference in the sample and the nature of the instruments.
 
 No origin group displays a statistically significant negative wage gap once education and occupational category are controlled for, in any of the three models. The only positive effect (Southern European origin) is significant in OLS (+5.2%) and 2SLS v1 (+6.6%) but not in 2SLS v3, suggesting this result lacks full robustness across instrument specifications.  
