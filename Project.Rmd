@@ -504,6 +504,145 @@ Then, adjusting for the endogeneity of education does not substantially alter ou
 
 However, the exogeneity condition for the instruments (parents’ socio-economic status) remains impossible to verify directly. If parents’ socio-economic status transmits social capital beyond education, the 2SLS estimates remain biased. 
 
+# version 2 : with the instrument as a continuous variable
+
+```{r}
+csp_continuous <- function(x) {
+  case_when(
+    x %in% c(31,33,34,35,37,38, 74)          ~ 5,  # cadres + anciens cadres
+    x %in% c(21,22,23, 72)                    ~ 4,  # artisans/chefs d'entreprise
+    x %in% c(42,43,44,45,46,47,48, 75)        ~ 3,  # professions intermédiaires
+    x %in% c(52,53,54,55,56, 77)              ~ 2,  # employés
+    x %in% c(10,11,12,13, 71)                 ~ 2,  # agriculteurs
+    x %in% c(62,63,64,65,67,68,69, 78)        ~ 1,  # ouvriers + anciens ouvriers
+    x %in% c(81,82)                           ~ 1,  # sans activité
+    TRUE                                      ~ NA_real_
+  )
+}
+
+lastq_emp <- lastq_emp %>%
+  mutate(
+    csp_pere_num  = suppressWarnings(as.numeric(as.character(csp_pere))),
+    csp_mere_num  = suppressWarnings(as.numeric(as.character(csp_mere))),
+    level_pere    = csp_continuous(csp_pere_num),
+    level_mere    = csp_continuous(csp_mere_num)
+  )
+```
+
+```{r}
+# First stage
+first_stage_v2 <- lm_robust(
+  education_num ~ homme + age + age2 + origine + csp_actif +
+    level_pere + level_mere,
+  se_type = "stata",
+  data = lastq_emp
+)
+summary(first_stage_v2)
+
+# 2SLS
+iv_model_v2 <- iv_robust(
+  logsalhoraire ~ homme + age + age2 + origine + csp_actif + education_num |
+                  homme + age + age2 + origine + csp_actif +
+                  level_pere + level_mere,
+  se_type = "stata",
+  data = lastq_emp
+)
+summary(iv_model_v2, diagnostics = TRUE)
+```
+Pb : there are only 2 291 observations against 4 046 in the previous regression. The sub-sample for which both parents' CSP levels are observed may not be representative of the full employed population, limiting the external validity of this specification
+
+```{r}
+# Combien ont level_pere manquant ?
+cat("NA level_pere :", sum(is.na(lastq_emp$level_pere)), "\n")
+cat("NA level_mere :", sum(is.na(lastq_emp$level_mere)), "\n")
+
+# Quelles CSP du père produisent des NA ?
+lastq_emp %>%
+  mutate(na_level = is.na(level_pere)) %>%
+  count(csp_pere, na_level) %>%
+  filter(na_level == TRUE) %>%
+  arrange(desc(n))
+
+# Distribution des CSP manquantes
+lastq_emp %>%
+  mutate(
+    csp_pere_num = suppressWarnings(as.numeric(as.character(csp_pere))),
+    dans_grille = case_when(
+      csp_pere_num %in% c(31,33,34,35,37,38,74) ~ "cadres",
+      csp_pere_num %in% c(21,22,23,72)           ~ "artisans",
+      csp_pere_num %in% c(42,43,44,45,46,47,48,75) ~ "intermediaires",
+      csp_pere_num %in% c(52,53,54,55,56,77)     ~ "employes",
+      csp_pere_num %in% c(10,11,12,13,71)        ~ "agriculteurs",
+      csp_pere_num %in% c(62,63,64,65,67,68,69,78) ~ "ouvriers",
+      csp_pere_num %in% c(81,82)                 ~ "sans_activite",
+      TRUE                                       ~ "non_classe"
+    )
+  ) %>%
+  count(dans_grille) %>%
+  mutate(pct = round(100*n/sum(n), 1)) %>%
+  arrange(desc(n))
+  
+```  
+```{r}
+lastq_emp %>%
+  mutate(
+    csp_mere_num = suppressWarnings(as.numeric(as.character(csp_mere)))
+  ) %>%
+  count(csp_mere, sort = TRUE) %>%
+  head(20)
+```
+A lot of mother have "00" as a category. So we decide to take only the CSP level of the father as the instrument.
+```{r}
+
+# Creation of a sub-sample without NA on level_pere
+lastq_emp_v3 <- lastq_emp %>%
+  filter(!is.na(level_pere), !is.na(education_num))
+
+cat("N échantillon v3 :", nrow(lastq_emp_v3), "\n")
+
+# First stage
+first_stage_v3 <- lm_robust(
+  education_num ~ homme + age + age2 + origine + csp_actif + level_pere,
+  se_type = "stata",
+  data = lastq_emp_v3
+)
+summary(first_stage_v3)
+
+# Restricted model on the same sample
+first_stage_v3_restricted <- lm_robust(
+  education_num ~ homme + age + age2 + origine + csp_actif,
+  se_type = "stata",
+  data = lastq_emp_v3  # <-- même données
+)
+
+# test
+waldtest(first_stage_v3, first_stage_v3_restricted)
+
+# 2SLS 
+iv_model_v3 <- iv_robust(
+  logsalhoraire ~ homme + age + age2 + origine + csp_actif + education_num |
+                  homme + age + age2 + origine + csp_actif + level_pere,
+  se_type = "stata",
+  data = lastq_emp_v3  # <-- même données
+)
+summary(iv_model_v3)
+
+# Comparison between regressions
+screenreg(
+  list(m6_num, iv_model, iv_model_v3),
+  custom.model.names = c("MCO", "2SLS v1 (binaire)", "2SLS v3 (ordinal père)"),
+  digits = 4,
+  suppress.warnings = TRUE
+)
+```
+!! There are only 3 700 observations compared with 4 046 for the MCO and 2SLS v1. The difference is due to the 346 fathers with an unknown socio-professional category (csp_pere = ‘00’).
+
+Correcting for the endogeneity of education increases the estimated return to education in absolute value (from −0.052 in OLS to −0.088 in 2SLS v1 and −0.076 in 2SLS v3), confirming an upward bias in OLS estimates. 
+Then, the 2SLS v1 model suggests that a one-level increase in educational attainment (for example, moving from a Baccalaureate to a CAP-BEP in our coding) increases wages by approximately 8.8%, compared with 5.2% in the OLS model; whereas the 2SLS v3 model estimates this effect at 7.6%. The difference between the two 2SLS models is moderate and can be explained by the difference in the sample and the nature of the instruments.
+
+No origin group displays a statistically significant negative wage gap once education and occupational category are controlled for, in any of the three models. The only positive effect (Southern European origin) is significant in OLS (+5.2%) and 2SLS v1 (+6.6%) but not in 2SLS v3, suggesting this result lacks full robustness across instrument specifications.  
+
+
 
 # 2. Extensive Margin (Employed vs. Unemployed)
 
