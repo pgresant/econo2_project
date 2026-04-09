@@ -829,8 +829,47 @@ summary(logit_model) # we interpret the sign and the significance of the coeffic
 summary(AME_logit)
 ```
 
-In the following treatment, we will ignore the fact that the Rivers-Vuong method do no work for an binary endogeneous variable. We apply this method. 
-```{r}
+For the same reason than in question 2, to control for education level may raise an endogeneity problem. In the following treatment, we will ignore the fact that the Rivers-Vuong method do no work for an binary endogeneous variable. We apply this method. Note that we sill use a categorical variable, that correspond to a set of indicators ued as intruments of the endogeneous variable.  
 
+The variable higherdiplom is endogeneous. We consider this model : 
+$$Y=\mathbf{1}\{X'_1\beta_1 + X_2\beta_2+ \epsilon \geq 0\}$$, where is $$X_1$$ the matrix of the control variable and $$X_2$$ is the indicator $$higherdiplom$$, which is endogeneous, meaning not independant from $$\epsilon$$. 
+
+We choose the same instrument $$Z$$ that before : the csp of the father. It supposed to have a direct effect on $$higherdiplom$$ but not on $$Y$$, meaning that we supposed that : 
+
+$$ 
+X_2 = X'_1\gamma_1 + Z\gamma_2 + \eta
+$$
+
+where $$\epsilon = \rho\eta + \zeta $$
+
+The model is now : 
+$$
+Y=\mathbf{1}\{X'_1\beta_1 + X_2\beta_2+ \rho\eta + \zeta \geq 0\}
+$$
+
+
+Firstly, we compute the related OLS regression to obtain en estimation of $$\eta$$. 
+```{r}
+mod <- lm(higherdegree ~ origine_cat + homme + csp_actif_clean + age + age2 + csp_pere, data = lastq) # estimation du model 
+lastq$etahat<- mod$residuals  # si pb de lignes 
 ```
+
+SI BESOIN (pas de pb de NA normalement)
+```{r}
+# On s'assure que le modèle garde la trace des lignes exclues
+mod <- lm(higherdegree ~ origine_cat + homme + csp_actif_clean + age + age2 + csp_pere, 
+          data = lastq, 
+          na.action = na.exclude) 
+
+# L'attribution se fera parfaitement, même s'il y avait des NA
+lastq$etahat <- residuals(mod)
+```
+
+Then, we compute the logit model on  $$Y=\mathbf{1}\{X'_1\beta_1 + X_2\beta_2+ \beta_3\widehat\eta + \zeta \geq 0\}$$
+
+```{r}
+model_instru <- glm(unemp ~ origine_cat + homme + csp_actif_clean + age + age2 + etahat, family = binomial(link = "logit"), data = lastq)
+summary(logit_model) 
+```
+
 
