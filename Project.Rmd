@@ -214,7 +214,7 @@ freq(lastq_emp$indic2016) # OK
 
 ```{r q1_stats}
 # First, we make few descriptive statistics of salary 
-summary(last_q$logsalhoraire)
+# summary(last_q$logsalhoraire)
 
 # Distribution of origin within employed individuals
 freq(lastq_emp$origine)
@@ -590,7 +590,7 @@ lastq_emp %>%
   
 ```  
 ```{r}
-lastq_emp %>%
+#lastq_emp %>%
   mutate(
     csp_mere_num = suppressWarnings(as.numeric(as.character(csp_mere)))
   ) %>%
@@ -653,6 +653,194 @@ Then, the 2SLS v1 model suggests that a one-level increase in educational attain
 No origin group displays a statistically significant negative wage gap once education and occupational category are controlled for, in any of the three models. The only positive effect (Southern European origin) is significant in OLS (+5.2%) and 2SLS v1 (+6.6%) but not in 2SLS v3, suggesting this result lacks full robustness across instrument specifications.  
 
 
+# Version 3 : education as a continuous variable
+
+
+We treat education as a continuous variable (education_num, coded from 1 for the highest level to 6 for no diploma), which allows us to instrument a single endogenous variable rather than five dummies simultaneously.
+
+!! On recrée le dataset avec les mères avec NA car on les a enlevées dans la précédente version 
+```{r}
+
+lastq_emp <- df %>%
+  filter(t == 6, acteu == "Employed", !is.na(salhoraire))
+
+cat("N de départ :", nrow(lastq_emp), "\n")
+# Doit donner 4046
+
+# Recréer toutes les variables nécessaires
+lastq_emp <- lastq_emp %>%
+  mutate(
+    education_num = case_when(
+      education == ">Bac+2"  ~ 1,
+      education == "Bac+2"   ~ 2,
+      education == "Bac"     ~ 3,
+      education == "CAP-BEP" ~ 4,
+      education == "Brevet"  ~ 5,
+      education == "Aucun"   ~ 6,
+      TRUE ~ NA_real_
+    ),
+    csp_pere_num   = suppressWarnings(as.numeric(as.character(csp_pere))),
+    csp_mere_num   = suppressWarnings(as.numeric(as.character(csp_mere))),
+    level_pere     = csp_to_level(csp_pere_num),
+    level_mere     = csp_to_level(csp_mere_num),
+    level_mere_imp = ifelse(is.na(level_mere), 0, level_mere)
+  )
+
+cat("NA level_pere :", sum(is.na(lastq_emp$level_pere)), "\n")
+cat("NA level_mere_imp :", sum(is.na(lastq_emp$level_mere_imp)), "\n")
+
+# Filtre final : uniquement level_pere et education_num
+lastq_emp <- lastq_emp %>%
+  filter(!is.na(level_pere), !is.na(education_num))
+
+cat("N final :", nrow(lastq_emp), "\n")
+
+```
+
+```{r}
+
+csp_to_level <- function(x) {
+  case_when(
+    # Niveau 6 : Cadres et professions intellectuelles supérieures
+    x %in% c(31, 33, 34, 35, 37, 38,  # actifs
+              74)                        # anciens cadres
+    ~ 6,
+    
+    # Niveau 5 : Artisans, commerçants, chefs d'entreprise
+    x %in% c(21, 22, 23,               # actifs
+              72)                        # anciens
+    ~ 5,
+    
+    # Niveau 4 : Professions intermédiaires
+    x %in% c(42, 43, 44, 45, 46, 47, 48,  # actifs
+              75)                            # anciens
+    ~ 4,
+    
+    # Niveau 3 : Employés
+    x %in% c(52, 53, 54, 55, 56,       # actifs
+              77)                        # anciens
+    ~ 3,
+    
+    # Niveau 2 : Agriculteurs exploitants
+    x %in% c(10, 11, 12, 13,           # actifs
+              71)                        # anciens
+    ~ 2,
+    
+    # Niveau 1 : Ouvriers + sans activité
+    x %in% c(62, 63, 64, 65, 67, 68, 69,  # ouvriers actifs
+              78,                            # anciens ouvriers
+              81, 82)                        # sans activité
+    ~ 1,
+    
+    # NA : non renseigné (code 00) ou valeur manquante
+    x == 0 | is.na(x) ~ NA_real_
+  )
+}
+
+# Application aux deux parents
+lastq_emp <- lastq_emp %>%
+  mutate(
+    csp_pere_num = suppressWarnings(as.numeric(as.character(csp_pere))),
+    csp_mere_num = suppressWarnings(as.numeric(as.character(csp_mere))),
+    level_pere   = csp_to_level(csp_pere_num),
+    level_mere   = csp_to_level(csp_mere_num)
+  )
+
+# Vérification
+cat("NA level_pere :", sum(is.na(lastq_emp$level_pere)), "\n")
+cat("NA level_mere :", sum(is.na(lastq_emp$level_mere)), "\n")
+
+# Distribution des niveaux
+table(lastq_emp$level_pere, useNA = "always")
+table(lastq_emp$level_mere, useNA = "always")
+
+
+```
+
+The construction of level_pere and level_mere produces missing values only for individuals whose parent's socio-professional category is coded "00" (not stated). For fathers, this concerns 346 individuals (8.6% of the sample). For mothers, however, 1,561 individuals (38.6%) have a missing maternal CSP — a far larger share that would severely reduce the sample if treated as missing.
+
+We therefore impute level_mere = 0 when csp_mere = "00". We consider that a child raised by a mother with no professional activity is likely to have lower educational attainment than one raised by a mother with even a modest occupational status, all else equal. 
+
+This imputation allows us to retain the full sample of 4 046 observations and to use both level_pere and level_mere as instruments simultaneously, yielding an overidentified model and enabling a Sargan test of instrument validity.
+```{r}
+lastq_emp <- lastq_emp %>%
+  mutate(level_mere_imp = ifelse(is.na(level_mere), 0, level_mere))
+
+# Vérification
+cat("NA level_mere_imp :", sum(is.na(lastq_emp$level_mere_imp)), "\n")
+table(lastq_emp$level_mere_imp, useNA = "always")
+```
+```{r}
+lastq_emp <- lastq_emp %>%
+  filter(!is.na(level_pere), !is.na(education_num))
+
+cat("N :", nrow(lastq_emp), "\n")
+```
+# First stage
+```{r}
+first_stage <- lm_robust(
+  education_num ~ homme + age + age2 + origine + csp_actif +
+    level_pere + level_mere_imp,
+  se_type = "stata",
+  data = lastq_emp
+)
+summary(first_stage)
+```
+The relevance condition requires that the parental CSP level variables are correlated with the individual's education level, conditional on the other covariates. This condition is assessed through the first-stage regression of education_num on level_pere, level_mere_imp, and all exogenous controls. Both instruments are statistically significant at the 1% level : the coefficient on level_pere is −0.124 (p < 0.001) and the coefficient on level_mere_imp is −0.068 (p < 0.001). The signs are consistent with economic intuition : a higher parental occupational level (coded from 1 (manual workers) to 6 (senior managers)), is associated with a lower value of education_num, which corresponds to a higher level of educational attainment since education_num is coded in decreasing order of qualification. Then, children of higher-status parents systematically attain higher levels of education, all else equal.
+
+
+```{r}
+# relevance test
+first_stage_restricted <- lm_robust(
+  education_num ~ homme + age + age2 + origine + csp_actif,
+  se_type = "stata",
+  data = lastq_emp
+)
+waldtest(first_stage, first_stage_restricted)
+```
+
+
+```{r}
+# F-stat 
+r2_full <- summary(first_stage)$r.squared
+r2_res  <- summary(first_stage_restricted)$r.squared
+n <- nrow(lastq_emp)
+k <- length(coef(first_stage))
+q <- 2  # nombre d'instruments
+F_stat <- ((r2_full - r2_res) / q) / ((1 - r2_full) / (n - k))
+cat("F-stat instruments :", round(F_stat, 2), "\n")
+```
+A Wald test comparing the full first-stage model to a restricted model excluding both instruments yields Chi²(2) = 192.6 (p < 0.001), equivalent to an F-statistic of 95.94, far above the conventional threshold of 10. The relevance condition is therefore strongly satisfied.
+```{r}
+# 2SLS
+iv_model <- iv_robust(
+  logsalhoraire ~ homme + age + age2 + origine + csp_actif + education_num |
+                  homme + age + age2 + origine + csp_actif +
+                  level_pere + level_mere_imp,
+  se_type = "stata",
+  data = lastq_emp
+)
+summary(iv_model, diagnostics = TRUE)
+```
+```{r}
+# Comparative board
+m6_num_iv <- lm_robust(
+  logsalhoraire ~ homme + age + age2 + origine + csp_actif + education_num,
+  se_type = "stata",
+  data = lastq_emp
+)
+
+screenreg(
+  list(m6_num_iv, iv_model),
+  custom.model.names = c("MCO", "2SLS (level_pere + level_mere_imp)"),
+  digits = 4,
+  suppress.warnings = TRUE
+)
+```
+The comparison between OLS and 2SLS :
+Correcting for the endogeneity of education increases the estimated return to education in absolute value, from −0.052 in OLS to −0.077 in 2SLS, suggesting a downward bias in OLS estimates consistent with the endogeneity argument (q° 2a).
+
+Regarding origin, the results are stable : no origin group displays a statistically significant wage gap in either specification. So the endogeneity bias of education does not distort our conclusions about wage inequalities by origin, no evidence of direct wage discrimination at equal post and qualification is detected.
 
 # 2. Extensive Margin (Employed vs. Unemployed)
 
