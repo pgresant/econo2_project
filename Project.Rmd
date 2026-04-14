@@ -844,9 +844,100 @@ Regarding origin, the results are stable : no origin group displays a statistica
 
 # 2. Extensive Margin (Employed vs. Unemployed)
 
-```{r}
+*Question 4a* :
 
+The phrasing "exogeneity of residuals and individual fixed effects is assumed" points to the Random Effects (RE) framework. In this model, we assume that the unobserved individual heterogeneity ($\alpha_i$) is uncorrelated with the explanatory variables ($E(\alpha_i | X_{it}) = 0$). To estimate this, we first need to build a panel data frame containing all active individuals across all available periods ($t=1$ to $6$), not just the last quarter.
+
+
+The choice to employ a Linear Probability Model (LPM) rather than a non-linear specification, such as a Probit or Logit model, is driven by both interpretability and methodological flexibility. The primary advantage of the LPM is that its estimated coefficients directly represent the average marginal effect of the regressors on the probability of unemployment, allowing for a straightforward and intuitive interpretation in percentage points. Furthermore, non-linear models face significant structural limitations in panel data settings, most notably the incidental parameters problem and severe complications when integrating instrumental variables (IV) for dynamic models, which are required in subsequent steps of this analysis. Although the LPM inherently produces heteroskedasticity and can theoretically yield predicted probabilities outside the logical [0, 1] bounds, the former issue is effectively addressed by computing clustered robust standard errors. Given that the main objective is to estimate average partial effects rather than predicting individual probabilities, the LPM remains a robust, transparent, and widely supported framework in applied microeconometrics.
+
+```{r}
+# We create the panel subset for active individuals across all periods
+panel_active <- df %>%
+  dplyr::filter(acteu != "Inactive") %>%
+  mutate(
+    unemp = ifelse(acteu == "Unemployed", 1, 0),
+    csp_actif_clean = droplevels(csp_actif)
+  )
+
+cat("N =", nrow(panel_active), "active individuals*quarters \n")
+
+#We declare the dataset as a panel using pdata.frame
+p_active <- pdata.frame(panel_active, index = c("id_individu", "t"))
+
+#We estimate the Linear Probability Model with Random Effects
+lpm_re <- plm(unemp ~ origine_cat + homme + age + age2 + csp_actif_clean, 
+              data = p_active, 
+              model = "random")
+
+summary(lpm_re)
+
+# We compute clustered standard errors at the individual level to account for serial correlation
+coeftest(lpm_re, vcov = vcovHC(lpm_re, type = "HC1", cluster = "group"))
 ```
+
+The analysis employs a Linear Probability Model (LPM) with Random Effects to estimate the determinants of unemployment. Because the dependent variable is binary, taking the value of 1 for unemployed individuals and 0 for active employed individuals, the estimated coefficients can be directly interpreted as the change in the probability of being unemployed, expressed in percentage points, ceteris paribus. The Random Effects specification relies on the assumption that unobserved individual heterogeneity—such as innate characteristics that remain constant over time—is strictly uncorrelated with the explanatory variables in the model. Furthermore, since the LPM intrinsically generates heteroskedasticity and the panel structure implies serial correlation among observations of the same individual, robust standard errors clustered at the individual level are utilized to ensure valid statistical inference.
+
+Regarding the primary variable of interest, the origin of the individuals, the reference category is set to individuals of French origin. The results reveal a significant labor market penalty for several groups. Holding age, gender, and socio-professional category constant, individuals of Maghrebin origin face a probability of being unemployed that is 10.87 percentage points higher than their French-origin counterparts, an effect that is highly statistically significant. Similarly, individuals originating from the Rest of Africa and Southern Europe exhibit higher probabilities of being unemployed, by 8.01 and 3.75 percentage points respectively, both significant at the 5% level. Conversely, the coefficients for other origins, namely Eastern Europe, Northern Europe, the Middle East, and the Rest of the World, do not show statistically significant differences from the reference group.
+
+The control variables align with standard labor market expectations. Gender plays a significant role, with men exhibiting a 2.28 percentage point lower probability of being unemployed compared to women. The effect of age is captured through both linear and quadratic terms, revealing a U-shaped relationship where the probability of unemployment initially decreases with age before slightly increasing for older individuals. Furthermore, socio-professional categories strongly correlate with employment status, most notably demonstrated by the extreme mechanical correlation for the "Unemployed never worked" category, which shows an 83.08 percentage point increase in unemployment probability relative to the omitted baseline category.
+
+Despite these findings, the core assumption of the Random Effects model—that unobserved individual effects are uncorrelated with the regressors—remains a strong and potentially restrictive premise. It is highly plausible that unobserved traits, such as personal motivation or social networks, are correlated with an individual's origin or socio-professional category, thereby introducing an omitted variable bias into the current estimates. While a Fixed Effects (Within) model would traditionally correct for this endogeneity by eliminating time-invariant unobserved heterogeneity, implementing it in this context poses a fundamental structural issue: the Within transformation would simultaneously eliminate all time-invariant explanatory variables, thereby making it impossible to identify the causal effect of origin.
+
+
+*Question 4b* : 
+
+```{r}
+# --- Question 4b ---
+
+# We estimate the probability linear model with fixed effects (Within)
+lpm_fe <- plm(unemp ~ origine_cat + homme + age + age2 + csp_actif_clean, 
+              data = p_active, 
+              model = "within")
+
+# Results
+summary(lpm_fe)
+```
+To address the potential omitted variable bias inherent in the Random Effects specification, a Fixed Effects (Within) model is estimated. This approach rigorously controls for all unobserved, time-invariant individual heterogeneity by allowing it to be arbitrarily correlated with the explanatory variables. However, examining the estimation results reveals a fundamental structural limitation for this specific research objective: the variables corresponding to the individual's origin (origine_cat) and gender (homme) are completely omitted from the coefficient table.
+
+This omission is a direct consequence of the mathematical mechanics underlying the Within transformation. To eliminate the unobserved individual fixed effects, the estimator subtracts the individual-specific time average from each observation. Because demographic characteristics such as origin and gender are strictly time-invariant for a given individual across the observed quarters, their value at any given time t is exactly equal to their individual time average ($X_{it} = \bar{X}_i$). Consequently, the within-group differencing perfectly cancels them out ($X_{it} - \bar{X}_i = 0$), rendering the estimation of their coefficients impossible due to perfect collinearity with the fixed effects.
+
+Therefore, while the Fixed Effects model is theoretically more robust to endogeneity stemming from unobserved individual traits, it completely precludes the identification and estimation of the causal effect of origin on the probability of being unemployed. This structural constraint ultimately justifies the reliance on the Random Effects model to quantify the labor market penalty associated with an individual's origin, albeit with the necessary caveat that those estimates might still capture other unobserved, correlated factors.
+
+*Question 5a* :
+
+```{r}
+# We create the lagged variables and differences taking the panel structure into account
+p_active_dyn <- p_active %>%
+  group_by(id_individu) %>%
+  arrange(t) %>%
+  mutate(
+    # Lagged levels
+    l.unemp = dplyr::lag(unemp, 1),
+    l2.unemp = dplyr::lag(unemp, 2),
+    
+    # First differences
+    d.unemp = unemp - l.unemp,
+    d.l.unemp = l.unemp - l2.unemp # This corresponds to \Delta Y_{t-1}
+  ) %>%
+  ungroup()
+
+# We estimate the First-Differenced equation using IV (Anderson-Hsiao approach)
+# We instrument the differenced lag (d.l.unemp) with the twice-lagged level (l2.unemp)
+dyn_iv <- ivreg(d.unemp ~ d.l.unemp | l2.unemp, data = p_active_dyn)
+
+summary(dyn_iv)
+coeftest(dyn_iv, vcov = vcovCL, cluster = ~id_individu)
+```
+Note that the control variables present in the previous models (origin, gender, age) are intentionally omitted from this dynamic specification. Because we apply a First-Difference transformation to eliminate the individual fixed effect $\alpha_i$, all time-invariant variables (such as origine_cat and homme) mathematically disappear. Furthermore, since age increases by a constant exact amount for everyone each quarter, its first difference is a constant which is simply absorbed by the model's intercept. Therefore, the equation is solely focused on the dynamics of the dependent variable.
+
+*Questions 5b* :
+
+The estimation results from the Anderson-Hsiao instrumental variables approach yield a highly significant coefficient of approximately 0.364 for the first-differenced lagged dependent variable (d.l.unemp). Importantly, this statistical significance holds even after applying robust standard errors clustered at the individual level, which correctly adjusts our inference for both arbitrary heteroskedasticity and within-individual serial correlation.
+
+Economically, this coefficient quantifies the magnitude of "true state dependence" in unemployment, a phenomenon frequently referred to in labor economics as the "scarring effect." Because the dependent variable is binary (estimated via a Linear Probability Model framework), the coefficient can be interpreted directly as a marginal effect on probability. Specifically, it indicates that the mere fact of having been unemployed in the previous quarter directly increases the probability of remaining unemployed in the current quarter by 36.4 percentage points.
+
+Crucially, the methodological design of this dynamic model allows for a strong causal interpretation. By applying the First-Difference transformation, we have completely purged the model of time-invariant unobserved individual heterogeneity—such as innate ability, permanent motivation, or structural disadvantages related to an individual's origin. Therefore, this 36.4 percentage point penalty does not merely reflect "spurious state dependence," a scenario where certain individuals simply possess a higher baseline propensity for unemployment due to unobserved traits. Instead, it demonstrates an endogenous mechanism: the unemployment spell itself actively damages an individual's future employment prospects, likely through the depreciation of human capital or by acting as a negative signal to prospective employers.
 
 *Question 6a* : 
 
