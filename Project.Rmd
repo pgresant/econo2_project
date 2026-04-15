@@ -845,63 +845,48 @@ Regarding origin, the results are stable : no origin group displays a statistica
 
 *Question 3*
 *Question 3a*
-```{r}
 
-data_q3 <- lastq_emp %>%
-  filter(t %in% c(1, 6)) %>%      # garder t=1 et t=6
-  filter(acteu == 1)
-
-
-data_q3$t_factor <- factor(data_q3$t)
-
-data_q3$age2 <- data_q3$age^2
-
-```
+We estimate a pooled OLS model on the panel sub-sample of employed individuals observed at t=1 and t=6, with clustered standard errors at the individual level to account for serial correlation within individuals. We make the random effects assumption that individual effects αᵢ are uncorrelated with the regressors.
 
 ```{r}
-pooled_ols <- lm(
-  logsalhoraire ~ 
-    age + age2 +
-    homme +
-    education +
-    origine +
-    contrat +
-    t_factor,
-  data = data_q3
-)
-```
+# We create the panel subset for active individuals for t=1 and t=6 
+
+panel_q3 <- df %>%
+  filter(t %in% c(1, 6),
+         acteu == "Employed",
+         !is.na(salhoraire)) %>%
+  mutate(
+    # We create temporal dummies : 1 if t=6, 0 if t=1
+
+    d_last = as.numeric(t == 6),
+    
+    age2 = age^2
+  )
+
+cat("N observations :", nrow(panel_q3), "\n")
+cat("N individuals :", n_distinct(panel_q3$id_individu), "\n")
+
 
 # Fit the pooled OLS model
-```{r}
-pooled_ols <- lm(mrdrte ~ exec + unem + d90 + d93, data = murder)
+# We create a temporal dummy d_last to catch the common effect of the period
+pooled_ols <- lm(logsalhoraire ~ origine + education + homme + age + age2 + csp_actif + d_last, data = panel_q3)
 
 # Clustered standard errors at the "id" level
-clustered_se <- vcovCL(
-  pooled_ols,
-  cluster = ~id_individu
-)
+# (comme vcovCL(pooled_ols, cluster = ~id) dans le TD)
+clustered_se <- vcovCL(pooled_ols, cluster = ~id_individu)
 
 # Summary of the model with clustered standard errors
-coeftest(
-  pooled_ols,
-  vcov = clustered_se
-)
+coeftest(pooled_ols, vcov = clustered_se)
 ```
+d_last coefficient is +0.015 (p = 0.003). This means that, between the first and last waves observed, wages increased by an average of 1.5% all other things being equal. This captures the conjunctural effect common to all individuals.
 
-```{r}
-data_q3 <- data_q3 %>%
-  mutate(
-    education = factor(education),
-    origine = factor(origine),
-    contrat = factor(contrat),
-    t_factor = factor(t)
-  ) %>%
-  droplevels()
-```
+ Education remains the strongest determinant of wages, with a significant gradient across levels. 
+ Among origin groups, only Southern European origin shows a significant positive coefficient (+4.5%, p < 0.05)
+ 
+Finally, the results are consistent with the cross-sectional estimates of Question 1.
 
-```{r}
-table(data_q3$contrat)
-```
+
+
 # 2. Extensive Margin (Employed vs. Unemployed)
 
 *Question 4a* :
