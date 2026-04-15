@@ -889,9 +889,18 @@ Finally, the results are consistent with the cross-sectional estimates of Questi
 
 We can include the origine variable in the pooled OLS model estimated in the previous question because this estimator does not eliminate time-invariant regressors (as the origin).
 
-However, this model does not resolve potential endogeneity problems because it relies on an unrealistic assumption. Indeed, in the pooled OLS, we consider that the individual effects αi are uncorrelated with all regressors, including origine. But this assumption is very strong and unlikely to hold in practice. In fact, unobserved individual characteristics such as family networks or cultural capital are potentially correlated with origin. It violates the exogeneity condition. If this assumption fails, the pooled OLS estimator is then inconsistent.
+However, the pooled OLS estimates do not resolve potential endogeneity problems because it relies on an unrealistic assumption. Indeed, the consistency of OLS requires that the individual effects αi are uncorrelated with all regressors, including origine. However, this assumption is unlikely to hold. Indeed, the individual effect αi captures all time-invariant unobserved characteristics of individual, such as unobserved ability or family cultural capital, that simultaneously influence both the individual's labour market position and their origin group. We can suppose that individuals with an immigrant backgrounds may differ from French-origin individuals in unobserved dimensions (social networks and cultural norms), that directly affect wages. These factors would be absorbed into αi, creating a correlation between αi and origine. 
 
-Furthermore, we can't use the within estimator to solve the endogeneity problem because the variable origin is time-invariant. Indeed, the origin variable does not change over time for a given individual, the parents’ nationality is fixed at birth. So with the within estimator, the coefficient of origin would not be identified. 
+As a result, the pooled OLS suffers from an omitted variable bias and does not consistently estimate the causal effect of origin on wages.
+
+
+*Question 3c*
+
+When we allow individual effects αi to be correlated with the regressors, we can use methods such as the within estimator and the first-difference estimator. Nonetheless, these methods eliminate αi because they exploit within-individual variation over time. Then, any time-invariant variable is also eliminated in the process. 
+
+However, the variable origin is unfortunately time-invariant by construction, because parental nationality at birth does not change over time.
+
+So, with the within estimator and the first-difference estimator, coefficients of origin are not identified. Therefore, we can not simultaneously correct for the correlation between individual effects and regressors, and identify the causal effect of origin on wages.
 
 # 2. Extensive Margin (Employed vs. Unemployed)
 
