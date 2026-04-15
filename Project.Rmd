@@ -185,7 +185,7 @@ cprop(table(df$immi, df$origine_bin))
 
 We provide the correct version of the variable salhoraire. As this does not affect the results when using the logarithm as the dependent variable (except for the constant/intercept) and that we done the treatment before the correction, we will keep the original variable logsalaire.
 ```{r}
-df$salhoraire = df$salmensuel / (data$heuretra * 4.33)
+df$salhoraire = df$salmensuel / (df$heuretra * 4.33)
 ```
 
 
@@ -842,6 +842,66 @@ Correcting for the endogeneity of education increases the estimated return to ed
 
 Regarding origin, the results are stable : no origin group displays a statistically significant wage gap in either specification. So the endogeneity bias of education does not distort our conclusions about wage inequalities by origin, no evidence of direct wage discrimination at equal post and qualification is detected.
 
+
+*Question 3*
+*Question 3a*
+```{r}
+
+data_q3 <- lastq_emp %>%
+  filter(t %in% c(1, 6)) %>%      # garder t=1 et t=6
+  filter(acteu == 1)
+
+
+data_q3$t_factor <- factor(data_q3$t)
+
+data_q3$age2 <- data_q3$age^2
+
+```
+
+```{r}
+pooled_ols <- lm(
+  logsalhoraire ~ 
+    age + age2 +
+    homme +
+    education +
+    origine +
+    contrat +
+    t_factor,
+  data = data_q3
+)
+```
+
+# Fit the pooled OLS model
+```{r}
+pooled_ols <- lm(mrdrte ~ exec + unem + d90 + d93, data = murder)
+
+# Clustered standard errors at the "id" level
+clustered_se <- vcovCL(
+  pooled_ols,
+  cluster = ~id_individu
+)
+
+# Summary of the model with clustered standard errors
+coeftest(
+  pooled_ols,
+  vcov = clustered_se
+)
+```
+
+```{r}
+data_q3 <- data_q3 %>%
+  mutate(
+    education = factor(education),
+    origine = factor(origine),
+    contrat = factor(contrat),
+    t_factor = factor(t)
+  ) %>%
+  droplevels()
+```
+
+```{r}
+table(data_q3$contrat)
+```
 # 2. Extensive Margin (Employed vs. Unemployed)
 
 *Question 4a* :
