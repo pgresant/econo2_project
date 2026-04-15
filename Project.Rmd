@@ -885,7 +885,13 @@ d_last coefficient is +0.015 (p = 0.003). This means that, between the first and
  
 Finally, the results are consistent with the cross-sectional estimates of Question 1.
 
+*Question 3b*
 
+We can include the origine variable in the pooled OLS model estimated in the previous question because this estimator does not eliminate time-invariant regressors (as the origin).
+
+However, this model does not resolve potential endogeneity problems because it relies on an unrealistic assumption. Indeed, in the pooled OLS, we consider that the individual effects αi are uncorrelated with all regressors, including origine. But this assumption is very strong and unlikely to hold in practice. In fact, unobserved individual characteristics such as family networks or cultural capital are potentially correlated with origin. It violates the exogeneity condition. If this assumption fails, the pooled OLS estimator is then inconsistent.
+
+Furthermore, we can't use the within estimator to solve the endogeneity problem because the variable origin is time-invariant. Indeed, the origin variable does not change over time for a given individual, the parents’ nationality is fixed at birth. So with the within estimator, the coefficient of origin would not be identified. 
 
 # 2. Extensive Margin (Employed vs. Unemployed)
 
