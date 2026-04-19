@@ -154,7 +154,12 @@ df[vars_cat] <- lapply(df[vars_cat], as.factor) # We convert categorical variabl
 # We precise the category of reference
 df$acteu <- relevel(df$acteu, ref = "Employed")
 df$origine <- relevel(df$origine, ref = "France")
-df$origine_bin <- relevel(df$origine_bin, ref = "France") # la catégorie aucun est la plus fréquente mais bon ...
+df <- df %>%
+  mutate(origine_bin = ifelse(origine == "France", "France", "Etranger"))
+
+df$origine_bin <- as.factor(df$origine_bin)
+df$origine_bin <- relevel(df$origine_bin, ref = "France")
+ # la catégorie aucun est la plus fréquente mais bon ...
 df$education <- relevel(df$education, ref = "Aucun")# la catégorie 7 est la plus fréquente mais bon ...je pense on eput changer selon le subdataset
 df$contrat <- relevel(df$contrat, ref = "CDI") # category la plus fréquente
 df$csp_actif <- relevel(df$csp_actif, ref = "Service employees") # category la plus fréquente$
@@ -190,7 +195,7 @@ df$salhoraire = df$salmensuel / (df$heuretra * 4.33)
 
 # 1. Intensive Margin (Net Hourly Wage)
 
-**Question 1**
+## Question 1
 
 ```{r q1_sample}
 # We select the sample : employed individuals in the last observed quarter (t=6) 
@@ -218,16 +223,16 @@ freq(lastq_emp$indic2016) # OK
 # Distribution of origin within employed individuals
 freq(lastq_emp$origine)
 
-# descrptive statistics 
+# descriptive statistics 
 rprop(table(lastq_emp$origine, lastq_emp$immi))
 cprop(table(lastq_emp$origine, lastq_emp$immi))
 
 ```
 In the subset, arounf 75% of the individuals with at least one parent with an African nationality (except Maghrebian) or a Middle East one are immigrant, whereas it's 47% for Magrhebian and Eastern Europe origins, 30% for Northern and Southern European orgins.  
 
-This tendancy is confirmed by the second table : in the immigrant population, there 20% of people with at least one parent with an Maghrebian nationality, 17% with an african nationality and 25% with southern european nationality. 
+This tendancy is confirmed by the second table : in the immigrant population, there 20% of people with at least one parent with an Maghrebian nationality, 17% with an African nationality and 25% with Southern European nationality. 
 
-We estimate several models, using the function lm_robust (instead of lm), to compute heteroscedasticity-robust standard errors. Indee, we are not sure that the homoscedasticity assumptions holds here.
+We estimate several models, using the function lm_robust (instead of lm), to compute heteroscedasticity-robust standard errors. Indeed, we are not sure that the homoscedasticity assumptions holds here.
 
 ```{r}
 m1 <- lm_robust(logsalhoraire ~ indic2016 + origine, data = lastq_emp)
@@ -238,7 +243,7 @@ m1.1 <- lm_robust(logsalhoraire ~ origine, data = lastq_emp)
 summary(m1) ; summary(m1.1) # to compare the 2 models easily 
 modelsummary(m1, stars = TRUE) 
 ```
-The estimator of the coefficient of indic2016 is very low (<0,01) and not significant at 10%. The Ajusted R-squared is lower in the odel with the indicator than the other. So, we will not include this variable in the next models. 
+The estimator of the coefficient of indic2016 is very low (<0,01) and not significant at 10%. The Ajusted R-squared is lower in the model with the indicator than the other. So, we will not include this variable in the next models. 
 
 In the first regression (m1.1), we regress only the logarithm of wages on origin. The coefficients that are significant at 5% of level of risk are those for the Northern European origin (+0.119), the rest of Africa (-0.177) and South Asia (-0.151). The coefficient of the origin of Middle East origin (+0,09) is significant at the 10% level, but it's less relevant than the others. This can be interpreted as follows: an employee of South Asian origin earns approximately 15% less than an employee of French origin, in average. We can underline that the coefficient of the Maghreb origin has a p-value equal to 10,12%, meaning that it is not significant at 10% level, but not so far from this level. 
 
@@ -308,7 +313,7 @@ En termes de significativité statistique : -
 - la variable d'origine Rest of africa reste statistiquement significative à 5%. 
 - la variable d'origine d'Europe du Nord reste statistiquement significative à 5%.  
 
-The R-squared is much higjer in this model than the precedent one. 
+The R-squared is much higher in this model than the precedent one. 
 ```{r}
 m5 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine_cat + contrat + csp_actif, data = lastq_emp)
 summary(m5)
@@ -325,7 +330,7 @@ correlation entre education et entre csp_actif (mais très agrégé)
 Comparing to the model 4, in this model : 
 
 In absolute value, the coefficients : 
-- decrease for Rest of Africa, Northern Europe, Rest of the worl and Not stated origin variables. 
+- decrease for Rest of Africa, Northern Europe, Rest of the world and Not stated origin variables. 
 
 En termes de significativité statistique : -
 - la variable d'origine du Middle East is not statiscally significant at 10%,
@@ -353,8 +358,9 @@ For the final regression, we take wage as the dependent variable directly, and a
 In conclusion, wage gaps gradually narrow as we add controls. The only group for which the gap persists after controls is Southern Europe (with a coefficient of +6% in the third regression). So, at first glance, origin acts mainly through observable channels (level of education, type of employment), rather than through direct discrimination when the job and qualifications are identical.
 
 
-**Question 2**
-*Question 2a*
+## Question 2
+### Question 2a
+
 Education is a potentially endogeneous variable in the regression. Indeed, the level of education of an individual partly results from his/her own choices, which are influenced by unobservable charateristics (such as family cultural capital, ability, motivation, ...). Theses characteristics also directly affect wages. Then, we expect that the correlation between education and the residuals is not null, which violates the exogeneity assumption required for OLS to be consistent. Including education in the model therefore introduces an endogeneity bias, and then, the OLS estimator of the education coefficient does not converge to the true causal effect. 
 
 Furthermore, origin and education are correlated. Individuals from certain origin groups have on average lower educational attainment, due to inequalities in access to education. Then, part of the origin on wages operates through the education channel (origin affects education, which in turn affects wages). 
@@ -367,11 +373,16 @@ By the omitted variable bias formula (Frisch-Waught):
 
 $$\tilde{\beta}_{origine} = \beta_{origine} + \beta_{educ} \cdot \delta$$
 
-where $\tilde{\beta}_{origine}$ is the coefficient of origin in the short regression of wages on origin ; $\beta_{origine}$ is the coefficient of origin in the long regression of wages on origin and education ; and $\delta = \frac{Cov(educ, origine)}{Var(origine)}$ is the coefficient of the regression of education on origin. As $\beta_{educ} > 0$ and $\delta < 0$ for disadvantaged groups, the bias is negative : we over-estimate in absolute value the wage's disadvantage of theses groups when we omit education. In this case, we attribute the disadvantage for the origins, where it is partly because theses individuals have less education levels, in mean. When we control by education, disadvantage due to origin decreases. 
+where :
+$$\tilde{\beta}_{origine}$$ is the coefficient of origin in the short regression of wages on origin ; 
+$$\beta_{origine}$$ is the coefficient of origin in the long regression of wages on origin and education ; 
+$$\delta = \frac{Cov(educ, origine)}{Var(origine)}$$ is the coefficient of the regression of education on origin.
 
-*Question 2b*
+As $\beta_{educ} > 0$ and $\delta < 0$ for disadvantaged groups, the bias is negative : we over-estimate in absolute value the wage's disadvantage of theses groups when we omit education. In this case, we attribute the disadvantage for the origins, where it is partly because theses individuals have less education levels, in mean. When we control by education, disadvantage due to origin decreases. 
 
-We can choose the variables csp_pere and csp_mere (socio-professional category of the father and mother) as instrumental variables for education. We the construct four binary instruments by regrouping the categories along the PCS nomenclature : 
+### Question 2b
+
+We can choose the variables csp_pere and csp_mere (socio-professional category of the father and mother) as instrumental variables for education. We then construct four binary instruments by regrouping the categories along the PCS nomenclature : 
 
 - father_manager : the father is a senior manager or professional (codes 31 (liberal professions), 33 (senior civil servants), 34 (professors and scientific professions), 35 (information, arts, and entertainment professions), 37 (senior administrative and commercial managers in companies), 38 (engineers and senior technical managers in companies))
 - mother_manager : the mother is a senior manager or professional (same codes)
