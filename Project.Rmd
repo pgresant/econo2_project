@@ -382,30 +382,81 @@ As $\beta_{educ} > 0$ and $\delta < 0$ for disadvantaged groups, the bias is neg
 
 ### Question 2b
 
-We can choose the variables csp_pere and csp_mere (socio-professional category of the father and mother) as instrumental variables for education. We then construct four binary instruments by regrouping the categories along the PCS nomenclature : 
+We can choose the variables csp_pere and csp_mere (socio-professional category of the father and mother) as instrumental variables for education. Rather than using the raw CSP codes directly, we regroup them into five categories following the standard French PCS nomenclature, plus a category for non-stated CSP. 
+We construct csp_pere_cat and csp_mere_cat as follows : 
+- category 1 (farmers : codes 10, 11, 12, 13, 71)
+- category 2 (craftsmen and business owners : codes 21, 22, 23, 72)
+- category 3 (senior managers and professionals : codes 31, 33, 34, 35, 37, 38, 74)
+- category 4 (intermediate professions : codes 42, 43, 44, 45, 46, 47, 48, 75)
+- category 5 (employees and manual workers : codes 52–56, 62–69, 77, 78), used as the reference category as it is the most frequent
+- category 0 (not stated or without professional activity : codes 00, 81, 82).
 
-- father_manager : the father is a senior manager or professional (codes 31 (liberal professions), 33 (senior civil servants), 34 (professors and scientific professions), 35 (information, arts, and entertainment professions), 37 (senior administrative and commercial managers in companies), 38 (engineers and senior technical managers in companies))
-- mother_manager : the mother is a senior manager or professional (same codes)
-- father_worker : the father is a manual worker (codes 62 (skilled industrial workers), 63 (skilled craft workers), 64 (drivers), 65 (skilled handling, ware-housing, and transport workers), 67 (unskilled industrial workers), 68 (unskilled craft workers), 69 (agricultural workers))
-- mother_worker : the mother is a manual worker (same codes)
+We assign retired individuals to their former occupational category.
+Both variables are treated as unordered factors with category 5 as the reference, generating four dummies per parent, for a total of 10 instruments.
+
 
 ```{r}
-manager   <- c(31, 33, 34, 35, 37, 38)
-worker <- c(62, 63, 64, 65, 67, 68, 69)
+lastq_emp <- df %>%
+  filter(t == 6, acteu == "Employed", !is.na(salhoraire))
+
+cat("N at the beginning :", nrow(lastq_emp), "\n")
 
 lastq_emp <- lastq_emp %>%
   mutate(
-    csp_pere_num = suppressWarnings(as.numeric(as.character(csp_pere))), # the values are converted to characters and then to numbers
-    csp_mere_num = suppressWarnings(as.numeric(as.character(csp_mere))),
-    father_manager   = as.numeric(csp_pere_num %in% manager),
-    mother_manager   = as.numeric(csp_mere_num %in% manager),
-    father_worker = as.numeric(csp_pere_num %in% worker),
-    mother_worker = as.numeric(csp_mere_num %in% worker)
-  ) %>%
-  filter(!is.na(father_manager), !is.na(mother_manager)) # We only keep the rows where "father_manager" is not missing and "mother_manager" is not missing.
-# other socio-occupational categories are the default category
+    # CSP of father as a categorical variable
+    csp_pere_cat = case_when(
+      csp_pere %in% c("31","33","34","35","37","38","74") ~ 3,
+      csp_pere %in% c("21","22","23","72")                ~ 2,
+      csp_pere %in% c("42","43","44","45","46","47","48","75") ~ 4,
+      csp_pere %in% c("52","53","54","55","56","77")      ~ 5,
+      csp_pere %in% c("10","11","12","13","71")           ~ 1,
+      csp_pere %in% c("62","63","64","65","67","68","69","78") ~ 5,
+      TRUE ~ 0
+    ),
+    
+    # CSP of mother as a categorical variable
+    csp_mere_cat = case_when(
+      csp_mere %in% c("31","33","34","35","37","38","74") ~ 3,
+      csp_mere %in% c("21","22","23","72")                ~ 2,
+      csp_mere %in% c("42","43","44","45","46","47","48","75") ~ 4,
+      csp_mere %in% c("52","53","54","55","56","77")      ~ 5,
+      csp_mere %in% c("10","11","12","13","71")           ~ 1,
+      csp_mere %in% c("62","63","64","65","67","68","69","78") ~ 5,
+      TRUE ~ 0
+    )
+  )
 
-# We convert education variable into numeric variable (education_num) to make the 2SLS (education_num is then continuous and we have just one endogeneous variable to instrument, that is possible with 4 instruments)
+# Conversion using a reference factor of 5 (office staff/manual workers)
+lastq_emp$csp_pere_cat <- relevel(as.factor(lastq_emp$csp_pere_cat), ref = "5")
+lastq_emp$csp_mere_cat <- relevel(as.factor(lastq_emp$csp_mere_cat), ref = "5")
+
+# Verifications
+freq(lastq_emp$csp_pere_cat)
+freq(lastq_emp$csp_mere_cat)
+
+cat("final N :", nrow(lastq_emp), "\n")
+```
+
+Discussion of the validity of the instruments;
+We must respect 2 conditions for an instrumental variable : 
+
+1) Relevance condition (i.e. cov(instrument, education) not equal to 0)
+In the sociological and economic literature, we know that parental socio-professional category is highly correlated with the educational attainment of children. Children of senior managers and professionals have substantially higher probabilities of attaining higher education, while children of manual workers have substantially lower probabilities. 
+Emprically, we will confirm that by the first-stage F-statistic
+
+2) Exogeneity condition (i.e. cov (instrument, residuals) = 0)
+This condition requires that parental category socio-professionnal affects the individual's wage only through the education channel, and not directly.
+
+The respect of this condition is more debatable, because it remains social capital transmission : for example, children of senior managers may benefit from parental networks, job referrals, or behavioural norms that directly improve their labour market outcomes independently of the diploma they hold. In that case, the instrument is invalid.
+
+To identify a model with instrumental variables, the number of instruments must be superior or equal to the number of endogeneous variables. Here, we have only one variable endogeneous (education), and 10 instruments. So, the model is overidentified, that improves first-stage precision.
+
+### Question 2c
+
+We treat education as a continuous variable (education_num, coded from 1 for the highest level to 6 for no diploma), which allows us to instrument a single endogenous variable rather than five dummies simultaneously.
+
+```{r}
+
 lastq_emp <- lastq_emp %>%
   mutate(
     education_num = case_when(
@@ -415,81 +466,71 @@ lastq_emp <- lastq_emp %>%
       education == "CAP-BEP" ~ 4,
       education == "Brevet"  ~ 5,
       education == "Aucun"   ~ 6,
-      TRUE                   ~ NA_real_
-    )
+      TRUE ~ NA_real_
+    ),
+    age2 = age^2,
   )
+
+
+# Filter on education_num 
+lastq_emp <- lastq_emp %>%
+  filter(!is.na(education_num))
+
 ```
-  
-
-Discussion of the validity of the instruments : 2 conditions for an instrumental variable : 
-
-1) Relevance condition (i.e. cov(instrument, education) not equal to 0)
-In the sociological and economic literature, we know that parental socio-professional category is highly correlated with the educational attainment of children. Children of senior managers and professionals have substantially higher probabilities of attaining higher education, while children of manual workers have substantially lower probabilities. 
-Emprically, we will confirm that by the first-stage F-statistic
-
-2) Exogeneity condition (i.e. cov (instrument, residuals) = 0)
-This condition requires that parental ctageory socio-professionnal affects the individual's wage only through the education channel, and not directly.
-
-The respect of this condition is more debatable, because it remains social capital transmission : for example, children of senior managers may benefit from parental networks, job referrals, or behavioural norms that directly improve their labour market outcomes independently of the diploma they hold. In that case, the instrument is invalid.
-
-To identify a model with instrumental variables, the number of instruments must be superior or equal to the number of endogeneous variables. Here, we have only one variable endogeneous (education), and 4 instruments. That improves first-stage precision and allows us to test the joint validity of the instruments via the Sargan-Hansen test. The null hypothesis of this test is that all instruments are valid. 
-
-*Question 2c*
-
-First stage
+We make the first stage step by regressing education_num on instrumental variables and other control variables :  
 ```{r}
 first_stage <- lm_robust(
   education_num ~ homme + age + age2 + origine + csp_actif +
-    father_manager + mother_manager + 
-    father_worker  + mother_worker,
+    csp_pere_cat + csp_mere_cat,
   se_type = "stata",
   data = lastq_emp
 )
-summary(first_stage)
+modelsummary(first_stage, stars = TRUE, fmt = 3)
+
 ```
-
-We examine the coefficients of the four instruments individually in the first-stage regression.
-All four coefficients are statistically significant at the 1% level : father_manager (−0.510, p < 0.001), mother_manager (−0.382, p < 0.001), father_worker (+0.233, p < 0.001) and mother_worker (+0.179, p < 0.01).
-
-The signs are consistent with economic intuition : having a parent who is a senior manager or professional is associated with a higher level of education (lower education_num); while having a parent who is a worker is associated with a lower level of education (higher education_num).
-
-To confirm this formally, we conduct a joint significance test of the four instruments.
+As the model is  overidentified with 9 overidentifying restrictions, we perform a Sargan-Hansen test of instrument validity. The joint relevance of the instruments is assessed via a Wald test comparing the full first-stage model to a restricted model excluding all parental CSP dummies.
 ```{r}
-# We use the Wald test with : 
-# H0 : the coefficients for all four instruments are jointly zero (irrelevant instruments)
-# vs H1 : at least one instrument is relevant
-# Simplified model (without instruments)
 first_stage_restricted <- lm_robust(
   education_num ~ homme + age + age2 + origine + csp_actif,
   se_type = "stata",
   data = lastq_emp
 )
-
 waldtest(first_stage, first_stage_restricted)
 
-F_stat <- 201.3 / 4  # Chi² divided by the number of restrictions
-cat("F-stat :", round(F_stat, 2), "\n")
-
+# F-stat
+r2_full <- summary(first_stage)$r.squared
+r2_res  <- summary(first_stage_restricted)$r.squared
+n <- nrow(lastq_emp)
+k <- length(coef(first_stage))
+q <- 8  # number of dummies instruments (4 father + 4 mother, cat1 to cat4)
+F_stat <- ((r2_full - r2_res) / q) / ((1 - r2_full) / (n - k))
+cat("F-stat instruments :", round(F_stat, 2), "\n")
 ```
+The relevance condition requires that the parental CSP level variables are correlated with the individual's education level, conditional on the other covariates ; that we can assess through the first-stage regression.
 
-The Wald test yields Chi²(4) = 201.3 (p < 0.001), which is equivalent to F ≈ 50.33, far above the conventional threshold of 10. We therefore reject the null hypothesis that the instruments are jointly irrelevant, which confirms that parental socio-professional category is strongly correlated with the individual's education level.
+We can see that, relative to the reference category (employees and manual workers, category 5), children of senior managers and professionals have higher educational attainment, as reflected by the large negative coefficients on csp_pere_cat3 (−0.634, p < 0.001) and csp_mere_cat3 (−0.437, p < 0.001).
+Children of intermediate profession parents also attain higher education levels (csp_pere_cat4 : −0.340, p < 0.001 ; csp_mere_cat4 : −0.374, p < 0.001).
+By contrast, the coefficients on agricultural workers (category 1) and self-employed mothers (category 2) are not individually significant, suggesting that children from these backgrounds have educational attainment similar to the reference group.
 
+The test yields Chi²(10) = 286 (p < 0.001), equivalent to an F-statistic of 30.08, well above the conventional threshold of 10 used to detect weak instruments.
 
-Now, we make the 2SLS :
+The null hypothesis of jointly irrelevant instruments is therefore strongly rejected, and the relevance condition is satisfied.
+
+We are now performing the 2SLS regression : 
 ```{r}
 iv_model <- iv_robust(
   logsalhoraire ~ homme + age + age2 + origine + csp_actif + education_num |
                   homme + age + age2 + origine + csp_actif +
-                  father_manager + mother_manager +
-                  father_worker  + mother_worker,
+                  csp_pere_cat + csp_mere_cat,
   se_type = "stata",
   data = lastq_emp
 )
 summary(iv_model, diagnostics = TRUE)
 ```
-The coefficient of education_num is significative at 1% level and negative, which is consistent with the expected relationship between education and wages (as the level of education increases, so does the wage).
 
-We will compare the OLS estimator of the coefficient of education_num in the OLS regression m6 ; and the 2SLS coefficient of the last regression. 
+### Question 2d
+
+We will compare the OLS estimator of the coefficient of education_num in the OLS regression m6 ; and the 2SLS coefficient of the last regression : 
 ```{r}
 # m6 0LS regression with education_num 
 m6_num <- lm_robust(
@@ -507,353 +548,15 @@ screenreg(
   digits = 4
 )
 ```
-*Question 2d*
 
-By comparing the OLS and 2SLS estimates, we can assess the impact of correcting for the endogeneity of education. The coefficient on education_num is larger in absolute value in the 2SLS specification (−0.088) than in OLS (−0.052), suggesting that OLS underestimated the causal return to education. Based on the 2SLS regression, all other things being equal, moving down one educational level reduces earnings by around 8.8%. 
+The 2SLS estimates confirm what we had found with the OLS specification. Correcting for the endogeneity of education increases the estimated return to education in absolute value, from −0.052 in OLS to −0.065 in 2SLS.This is consistent with the downward bias argument (Question 2a) : OLS underestimates the causal return to education because unobserved factors simultaneously reduce both educational attainment and wages. After correction, each additional step down in the education ladder is associated with a 6.5% reduction in hourly wages.
 
-Regarding origin, the coefficients are stable between OLS and 2SLS. No origin group changes significance category substantially. Theses results confirm that the endogeneity bias of education does not distort the estimated origin wage gaps. 
-Southern European origin remains positively significant in both specifications (+5.2% in OLS, +6.6% in 2SLS). Based on the 2SLS regression, all other things being equal (in terms of education, gender, age and socio-professional category), a person of Southern European origin earns on average 6.6% more than a person of French origin.
-
-For other origin groups, no significant negative wage penalty is detected once education and occupational category are controlled for.
-Then, adjusting for the endogeneity of education does not substantially alter our conclusions regarding wage inequalities linked to origins.
+Regarding origin, the results are stable across both specifications : only Southern European origin displays a statistically significant positive wage premium (+5.7%, p < 0.05), while no other origin group shows a significant wage gap relative to French-origin individuals. This confirms that correcting for the endogeneity of education does not substantially alter our conclusions about wage inequalities by origin. Observable factors such as educational attainment and occupational category account for the main part of the gross wage gaps identified in question 1; and the data show no evidence of direct wage discrimination for the same job and qualifications.
 
 However, the exogeneity condition for the instruments (parents’ socio-economic status) remains impossible to verify directly. If parents’ socio-economic status transmits social capital beyond education, the 2SLS estimates remain biased. 
 
-# version 2 : with the instrument as a continuous variable
-
-```{r}
-csp_continuous <- function(x) {
-  case_when(
-    x %in% c(31,33,34,35,37,38, 74)          ~ 5,  # cadres + anciens cadres
-    x %in% c(21,22,23, 72)                    ~ 4,  # artisans/chefs d'entreprise
-    x %in% c(42,43,44,45,46,47,48, 75)        ~ 3,  # professions intermédiaires
-    x %in% c(52,53,54,55,56, 77)              ~ 2,  # employés
-    x %in% c(10,11,12,13, 71)                 ~ 2,  # agriculteurs
-    x %in% c(62,63,64,65,67,68,69, 78)        ~ 1,  # ouvriers + anciens ouvriers
-    x %in% c(81,82)                           ~ 1,  # sans activité
-    TRUE                                      ~ NA_real_
-  )
-}
-
-lastq_emp <- lastq_emp %>%
-  mutate(
-    csp_pere_num  = suppressWarnings(as.numeric(as.character(csp_pere))),
-    csp_mere_num  = suppressWarnings(as.numeric(as.character(csp_mere))),
-    level_pere    = csp_continuous(csp_pere_num),
-    level_mere    = csp_continuous(csp_mere_num)
-  )
-```
-
-```{r}
-# First stage
-first_stage_v2 <- lm_robust(
-  education_num ~ homme + age + age2 + origine + csp_actif +
-    level_pere + level_mere,
-  se_type = "stata",
-  data = lastq_emp
-)
-summary(first_stage_v2)
-
-# 2SLS
-iv_model_v2 <- iv_robust(
-  logsalhoraire ~ homme + age + age2 + origine + csp_actif + education_num |
-                  homme + age + age2 + origine + csp_actif +
-                  level_pere + level_mere,
-  se_type = "stata",
-  data = lastq_emp
-)
-summary(iv_model_v2, diagnostics = TRUE)
-```
-Pb : there are only 2 291 observations against 4 046 in the previous regression. The sub-sample for which both parents' CSP levels are observed may not be representative of the full employed population, limiting the external validity of this specification
-
-```{r}
-# Combien ont level_pere manquant ?
-cat("NA level_pere :", sum(is.na(lastq_emp$level_pere)), "\n")
-cat("NA level_mere :", sum(is.na(lastq_emp$level_mere)), "\n")
-
-# Quelles CSP du père produisent des NA ?
-lastq_emp %>%
-  mutate(na_level = is.na(level_pere)) %>%
-  count(csp_pere, na_level) %>%
-  filter(na_level == TRUE) %>%
-  arrange(desc(n))
-
-# Distribution des CSP manquantes
-lastq_emp %>%
-  mutate(
-    csp_pere_num = suppressWarnings(as.numeric(as.character(csp_pere))),
-    dans_grille = case_when(
-      csp_pere_num %in% c(31,33,34,35,37,38,74) ~ "cadres",
-      csp_pere_num %in% c(21,22,23,72)           ~ "artisans",
-      csp_pere_num %in% c(42,43,44,45,46,47,48,75) ~ "intermediaires",
-      csp_pere_num %in% c(52,53,54,55,56,77)     ~ "employes",
-      csp_pere_num %in% c(10,11,12,13,71)        ~ "agriculteurs",
-      csp_pere_num %in% c(62,63,64,65,67,68,69,78) ~ "ouvriers",
-      csp_pere_num %in% c(81,82)                 ~ "sans_activite",
-      TRUE                                       ~ "non_classe"
-    )
-  ) %>%
-  count(dans_grille) %>%
-  mutate(pct = round(100*n/sum(n), 1)) %>%
-  arrange(desc(n))
-  
-```  
-```{r}
-#lastq_emp %>%
-  mutate(
-    csp_mere_num = suppressWarnings(as.numeric(as.character(csp_mere)))
-  ) %>%
-  count(csp_mere, sort = TRUE) %>%
-  head(20)
-```
-A lot of mother have "00" as a category. So we decide to take only the CSP level of the father as the instrument.
-```{r}
-
-# Creation of a sub-sample without NA on level_pere
-lastq_emp_v3 <- lastq_emp %>%
-  filter(!is.na(level_pere), !is.na(education_num))
-
-cat("N échantillon v3 :", nrow(lastq_emp_v3), "\n")
-
-# First stage
-first_stage_v3 <- lm_robust(
-  education_num ~ homme + age + age2 + origine + csp_actif + level_pere,
-  se_type = "stata",
-  data = lastq_emp_v3
-)
-summary(first_stage_v3)
-
-# Restricted model on the same sample
-first_stage_v3_restricted <- lm_robust(
-  education_num ~ homme + age + age2 + origine + csp_actif,
-  se_type = "stata",
-  data = lastq_emp_v3  # <-- même données
-)
-
-# test
-waldtest(first_stage_v3, first_stage_v3_restricted)
-
-# 2SLS 
-iv_model_v3 <- iv_robust(
-  logsalhoraire ~ homme + age + age2 + origine + csp_actif + education_num |
-                  homme + age + age2 + origine + csp_actif + level_pere,
-  se_type = "stata",
-  data = lastq_emp_v3  # <-- même données
-)
-summary(iv_model_v3)
-
-# Comparison between regressions
-screenreg(
-  list(m6_num, iv_model, iv_model_v3),
-  custom.model.names = c("MCO", "2SLS v1 (binaire)", "2SLS v3 (ordinal père)"),
-  digits = 4,
-  suppress.warnings = TRUE
-)
-```
-!! There are only 3 700 observations compared with 4 046 for the MCO and 2SLS v1. The difference is due to the 346 fathers with an unknown socio-professional category (csp_pere = ‘00’).
-
-Correcting for the endogeneity of education increases the estimated return to education in absolute value (from −0.052 in OLS to −0.088 in 2SLS v1 and −0.076 in 2SLS v3), confirming an upward bias in OLS estimates. 
-
-The test : We reject H0 (zero coefficient for level_pere) by a significant margin. The relevance condition is also largely satisfied for 2SLS v3. level_pere alone is a stronger instrument than the four binary instruments combined (its individual F-statistic is three times higher). This is because the ordinal variable captures the continuous variation in parental socio-economic status more effectively, whereas the binary variables captured only the extremes (managers vs workers).
-
-
-Then, the 2SLS v1 model suggests that a one-level increase in educational attainment (for example, moving from a Baccalaureate to a CAP-BEP in our coding) increases wages by approximately 8.8%, compared with 5.2% in the OLS model; whereas the 2SLS v3 model estimates this effect at 7.6%. The difference between the two 2SLS models is moderate and can be explained by the difference in the sample and the nature of the instruments.
-
-No origin group displays a statistically significant negative wage gap once education and occupational category are controlled for, in any of the three models. The only positive effect (Southern European origin) is significant in OLS (+5.2%) and 2SLS v1 (+6.6%) but not in 2SLS v3, suggesting this result lacks full robustness across instrument specifications.  
-
-
-# Version 3 : education as a continuous variable
-
-
-We treat education as a continuous variable (education_num, coded from 1 for the highest level to 6 for no diploma), which allows us to instrument a single endogenous variable rather than five dummies simultaneously.
-
-!! On recrée le dataset avec les mères avec NA car on les a enlevées dans la précédente version 
-```{r}
-
-lastq_emp <- df %>%
-  filter(t == 6, acteu == "Employed", !is.na(salhoraire))
-
-cat("N de départ :", nrow(lastq_emp), "\n")
-# Doit donner 4046
-
-# Recréer toutes les variables nécessaires
-lastq_emp <- lastq_emp %>%
-  mutate(
-    education_num = case_when(
-      education == ">Bac+2"  ~ 1,
-      education == "Bac+2"   ~ 2,
-      education == "Bac"     ~ 3,
-      education == "CAP-BEP" ~ 4,
-      education == "Brevet"  ~ 5,
-      education == "Aucun"   ~ 6,
-      TRUE ~ NA_real_
-    ),
-    csp_pere_num   = suppressWarnings(as.numeric(as.character(csp_pere))),
-    csp_mere_num   = suppressWarnings(as.numeric(as.character(csp_mere))),
-    level_pere     = csp_to_level(csp_pere_num),
-    level_mere     = csp_to_level(csp_mere_num),
-    level_mere_imp = ifelse(is.na(level_mere), 0, level_mere)
-  )
-
-cat("NA level_pere :", sum(is.na(lastq_emp$level_pere)), "\n")
-cat("NA level_mere_imp :", sum(is.na(lastq_emp$level_mere_imp)), "\n")
-
-# Filtre final : uniquement level_pere et education_num
-lastq_emp <- lastq_emp %>%
-  filter(!is.na(level_pere), !is.na(education_num))
-
-cat("N final :", nrow(lastq_emp), "\n")
-
-```
-
-```{r}
-
-csp_to_level <- function(x) {
-  case_when(
-    # Niveau 6 : Cadres et professions intellectuelles supérieures
-    x %in% c(31, 33, 34, 35, 37, 38,  # actifs
-              74)                        # anciens cadres
-    ~ 6,
-    
-    # Niveau 5 : Artisans, commerçants, chefs d'entreprise
-    x %in% c(21, 22, 23,               # actifs
-              72)                        # anciens
-    ~ 5,
-    
-    # Niveau 4 : Professions intermédiaires
-    x %in% c(42, 43, 44, 45, 46, 47, 48,  # actifs
-              75)                            # anciens
-    ~ 4,
-    
-    # Niveau 3 : Employés
-    x %in% c(52, 53, 54, 55, 56,       # actifs
-              77)                        # anciens
-    ~ 3,
-    
-    # Niveau 2 : Agriculteurs exploitants
-    x %in% c(10, 11, 12, 13,           # actifs
-              71)                        # anciens
-    ~ 2,
-    
-    # Niveau 1 : Ouvriers + sans activité
-    x %in% c(62, 63, 64, 65, 67, 68, 69,  # ouvriers actifs
-              78,                            # anciens ouvriers
-              81, 82)                        # sans activité
-    ~ 1,
-    
-    # NA : non renseigné (code 00) ou valeur manquante
-    x == 0 | is.na(x) ~ NA_real_
-  )
-}
-
-# Application aux deux parents
-lastq_emp <- lastq_emp %>%
-  mutate(
-    csp_pere_num = suppressWarnings(as.numeric(as.character(csp_pere))),
-    csp_mere_num = suppressWarnings(as.numeric(as.character(csp_mere))),
-    level_pere   = csp_to_level(csp_pere_num),
-    level_mere   = csp_to_level(csp_mere_num)
-  )
-
-# Vérification
-cat("NA level_pere :", sum(is.na(lastq_emp$level_pere)), "\n")
-cat("NA level_mere :", sum(is.na(lastq_emp$level_mere)), "\n")
-
-# Distribution des niveaux
-table(lastq_emp$level_pere, useNA = "always")
-table(lastq_emp$level_mere, useNA = "always")
-
-
-```
-
-The construction of level_pere and level_mere produces missing values only for individuals whose parent's socio-professional category is coded "00" (not stated). For fathers, this concerns 346 individuals (8.6% of the sample). For mothers, however, 1,561 individuals (38.6%) have a missing maternal CSP — a far larger share that would severely reduce the sample if treated as missing.
-
-We therefore impute level_mere = 0 when csp_mere = "00". We consider that a child raised by a mother with no professional activity is likely to have lower educational attainment than one raised by a mother with even a modest occupational status, all else equal. 
-
-This imputation allows us to retain the full sample of 4 046 observations and to use both level_pere and level_mere as instruments simultaneously, yielding an overidentified model and enabling a Sargan test of instrument validity.
-```{r}
-lastq_emp <- lastq_emp %>%
-  mutate(level_mere_imp = ifelse(is.na(level_mere), 0, level_mere))
-
-# Vérification
-cat("NA level_mere_imp :", sum(is.na(lastq_emp$level_mere_imp)), "\n")
-table(lastq_emp$level_mere_imp, useNA = "always")
-```
-```{r}
-lastq_emp <- lastq_emp %>%
-  filter(!is.na(level_pere), !is.na(education_num))
-
-cat("N :", nrow(lastq_emp), "\n")
-```
-# First stage
-```{r}
-first_stage <- lm_robust(
-  education_num ~ homme + age + age2 + origine + csp_actif +
-    level_pere + level_mere_imp,
-  se_type = "stata",
-  data = lastq_emp
-)
-summary(first_stage)
-```
-The relevance condition requires that the parental CSP level variables are correlated with the individual's education level, conditional on the other covariates. This condition is assessed through the first-stage regression of education_num on level_pere, level_mere_imp, and all exogenous controls. Both instruments are statistically significant at the 1% level : the coefficient on level_pere is −0.124 (p < 0.001) and the coefficient on level_mere_imp is −0.068 (p < 0.001). The signs are consistent with economic intuition : a higher parental occupational level (coded from 1 (manual workers) to 6 (senior managers)), is associated with a lower value of education_num, which corresponds to a higher level of educational attainment since education_num is coded in decreasing order of qualification. Then, children of higher-status parents systematically attain higher levels of education, all else equal.
-
-
-```{r}
-# relevance test
-first_stage_restricted <- lm_robust(
-  education_num ~ homme + age + age2 + origine + csp_actif,
-  se_type = "stata",
-  data = lastq_emp
-)
-waldtest(first_stage, first_stage_restricted)
-```
-
-
-```{r}
-# F-stat 
-r2_full <- summary(first_stage)$r.squared
-r2_res  <- summary(first_stage_restricted)$r.squared
-n <- nrow(lastq_emp)
-k <- length(coef(first_stage))
-q <- 2  # nombre d'instruments
-F_stat <- ((r2_full - r2_res) / q) / ((1 - r2_full) / (n - k))
-cat("F-stat instruments :", round(F_stat, 2), "\n")
-```
-A Wald test comparing the full first-stage model to a restricted model excluding both instruments yields Chi²(2) = 192.6 (p < 0.001), equivalent to an F-statistic of 95.94, far above the conventional threshold of 10. The relevance condition is therefore strongly satisfied.
-```{r}
-# 2SLS
-iv_model <- iv_robust(
-  logsalhoraire ~ homme + age + age2 + origine + csp_actif + education_num |
-                  homme + age + age2 + origine + csp_actif +
-                  level_pere + level_mere_imp,
-  se_type = "stata",
-  data = lastq_emp
-)
-summary(iv_model, diagnostics = TRUE)
-```
-```{r}
-# Comparative board
-m6_num_iv <- lm_robust(
-  logsalhoraire ~ homme + age + age2 + origine + csp_actif + education_num,
-  se_type = "stata",
-  data = lastq_emp
-)
-
-screenreg(
-  list(m6_num_iv, iv_model),
-  custom.model.names = c("MCO", "2SLS (level_pere + level_mere_imp)"),
-  digits = 4,
-  suppress.warnings = TRUE
-)
-```
-The comparison between OLS and 2SLS :
-Correcting for the endogeneity of education increases the estimated return to education in absolute value, from −0.052 in OLS to −0.077 in 2SLS, suggesting a downward bias in OLS estimates consistent with the endogeneity argument (q° 2a).
-
-Regarding origin, the results are stable : no origin group displays a statistically significant wage gap in either specification. So the endogeneity bias of education does not distort our conclusions about wage inequalities by origin, no evidence of direct wage discrimination at equal post and qualification is detected.
-
-
-*Question 3*
-*Question 3a*
+## Question 3
+### Question 3a
 
 We estimate a pooled OLS model on the panel sub-sample of employed individuals observed at t=1 and t=6, with clustered standard errors at the individual level to account for serial correlation within individuals. We make the random effects assumption that individual effects αᵢ are uncorrelated with the regressors.
 
@@ -894,7 +597,7 @@ d_last coefficient is +0.015 (p = 0.003). This means that, between the first and
  
 Finally, the results are consistent with the cross-sectional estimates of Question 1.
 
-*Question 3b*
+### Question 3b
 
 We can include the origine variable in the pooled OLS model estimated in the previous question because this estimator does not eliminate time-invariant regressors (as the origin).
 
@@ -903,7 +606,7 @@ However, the pooled OLS estimates do not resolve potential endogeneity problems 
 As a result, the pooled OLS suffers from an omitted variable bias and does not consistently estimate the causal effect of origin on wages.
 
 
-*Question 3c*
+### Question 3c
 
 When we allow individual effects αi to be correlated with the regressors, we can use methods such as the within estimator and the first-difference estimator. Nonetheless, these methods eliminate αi because they exploit within-individual variation over time. Then, any time-invariant variable is also eliminated in the process. 
 
@@ -913,7 +616,8 @@ So, with the within estimator and the first-difference estimator, coefficients o
 
 # 2. Extensive Margin (Employed vs. Unemployed)
 
-*Question 4a* :
+## Question 4
+### Question 4a
 
 The phrasing "exogeneity of residuals and individual fixed effects is assumed" points to the Random Effects (RE) framework. In this model, we assume that the unobserved individual heterogeneity ($\alpha_i$) is uncorrelated with the explanatory variables ($E(\alpha_i | X_{it}) = 0$). To estimate this, we first need to build a panel data frame containing all active individuals across all available periods ($t=1$ to $6$), not just the last quarter.
 
@@ -954,7 +658,7 @@ The control variables align with standard labor market expectations. Gender play
 Despite these findings, the core assumption of the Random Effects model—that unobserved individual effects are uncorrelated with the regressors—remains a strong and potentially restrictive premise. It is highly plausible that unobserved traits, such as personal motivation or social networks, are correlated with an individual's origin or socio-professional category, thereby introducing an omitted variable bias into the current estimates. While a Fixed Effects (Within) model would traditionally correct for this endogeneity by eliminating time-invariant unobserved heterogeneity, implementing it in this context poses a fundamental structural issue: the Within transformation would simultaneously eliminate all time-invariant explanatory variables, thereby making it impossible to identify the causal effect of origin.
 
 
-*Question 4b* : 
+### Question 4b
 
 ```{r}
 # --- Question 4b ---
@@ -973,7 +677,8 @@ This omission is a direct consequence of the mathematical mechanics underlying t
 
 Therefore, while the Fixed Effects model is theoretically more robust to endogeneity stemming from unobserved individual traits, it completely precludes the identification and estimation of the causal effect of origin on the probability of being unemployed. This structural constraint ultimately justifies the reliance on the Random Effects model to quantify the labor market penalty associated with an individual's origin, albeit with the necessary caveat that those estimates might still capture other unobserved, correlated factors.
 
-*Question 5a* :
+## Question 5
+### Question 5a
 
 ```{r}
 # We create the lagged variables and differences taking the panel structure into account
@@ -1000,7 +705,7 @@ coeftest(dyn_iv, vcov = vcovCL, cluster = ~id_individu)
 ```
 Note that the control variables present in the previous models (origin, gender, age) are intentionally omitted from this dynamic specification. Because we apply a First-Difference transformation to eliminate the individual fixed effect $\alpha_i$, all time-invariant variables (such as origine_cat and homme) mathematically disappear. Furthermore, since age increases by a constant exact amount for everyone each quarter, its first difference is a constant which is simply absorbed by the model's intercept. Therefore, the equation is solely focused on the dynamics of the dependent variable.
 
-*Questions 5b* :
+### Questions 5b
 
 The estimation results from the Anderson-Hsiao instrumental variables approach yield a highly significant coefficient of approximately 0.364 for the first-differenced lagged dependent variable (d.l.unemp). Importantly, this statistical significance holds even after applying robust standard errors clustered at the individual level, which correctly adjusts our inference for both arbitrary heteroskedasticity and within-individual serial correlation.
 
@@ -1008,9 +713,9 @@ Economically, this coefficient quantifies the magnitude of "true state dependenc
 
 Crucially, the methodological design of this dynamic model allows for a strong causal interpretation. By applying the First-Difference transformation, we have completely purged the model of time-invariant unobserved individual heterogeneity—such as innate ability, permanent motivation, or structural disadvantages related to an individual's origin. Therefore, this 36.4 percentage point penalty does not merely reflect "spurious state dependence," a scenario where certain individuals simply possess a higher baseline propensity for unemployment due to unobserved traits. Instead, it demonstrates an endogenous mechanism: the unemployment spell itself actively damages an individual's future employment prospects, likely through the depreciation of human capital or by acting as a negative signal to prospective employers.
 
-##*Question 6*
+## Question 6
 
-###*Question 6a* 
+### Question 6a
 
 Afin de considérer un modèle avec un effet fixe, il est nécessaire de l'adpater au cas de la variable binaire. Suppose there exists a continuous variable $$Y^*$$, the latent variable, such that $$Y=\mathbf{1}\{Y^* \geq 0\}$$ and suppose that $$Y^*$$ is generated by a linear model with a fixed effect : 
 
@@ -1061,7 +766,7 @@ $$
 Y_{it} - Y_{i,t-1} = (X_{it} - X_{i,t-1})\beta + (\varepsilon_{it} - \varepsilon_{i,t-1})
 $$
 
-###*Question 6b* : 
+### Question 6b 
 
 First, we create the correct subset to restrict our analysis to cross-sectional data using the last quarter and focusing on active individuals (employed or unemployed). We create then the indicator of being unemployed. 
 ```{r}
@@ -1160,7 +865,7 @@ The effect of the other origins cannot be stated as statiscally different than t
 
 This provides a more in-depth analysis of the effect of origins in the labor market.  
 
-###*Question 6c* : 
+### Question 6c 
 
 We create the indicator of having a higher education degree (modality "1" of the variable education in the dataset). 
 ```{r}
