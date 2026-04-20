@@ -571,9 +571,7 @@ panel_q3 <- df %>%
     # We create temporal dummies : 1 if t=6, 0 if t=1
 
     d_last = as.numeric(t == 6),
-    
-    age2 = age^2
-  )
+      )
 
 cat("N observations :", nrow(panel_q3), "\n")
 cat("N individuals :", n_distinct(panel_q3$id_individu), "\n")
@@ -839,7 +837,7 @@ logit_model <- glm(unemp ~ origine_cat + homme + csp_actif_clean + age + I(age^2
 summary(logit_model) # we interpret the sign and the significance of the coefficients, but not their values 
 ```
 The model's AIC is 2372,3, instead of 2208,2 for model 1. According to this measure, the probit model is better than the logit model. 
-
+->normalement l'AIC du logit est plus faible que celui du probit, c'est bizarre....
 We compute the Average Marginal Effect (AME) in the probit model. 
 ```{r}
 AME_logit <- margins(logit_model)
@@ -889,7 +887,7 @@ lastq <- lastq %>% mutate(highdegree = ifelse(lastq$education == ">Bac+2", 1, 0)
 Before using the Rivers-Vuong method, we include the new indicator as an explanatory variable, together with "origin" and the other relevant covariates, using a probit model. We choose the probit model because of the differences of model's AIC. 
 ```{r}
 probit_model2 <- glm(unemp ~ origine_cat + homme + csp_actif_clean + age + I(age^2) + highdegree, family = binomial(link = "probit"), data = lastq)
-summary(logit_model2) # we interpret the sign and the significance of the coefficients, but not their values 
+summary(probit_model2) # we interpret the sign and the significance of the coefficients, but not their values 
 AME_probit2 <- margins(probit_model2)
 summary(AME_probit2) ; summary(AME_probit) # quantitative interpretation is possible 
 ```
@@ -901,7 +899,7 @@ The fact of having a higher education degree the level of education of an indivi
 
 Furthermore, origin and education are correlated. Individuals from certain origin groups have on average lower educational attainment, due to inequalities in access to education. Then, part of the effect of origin on the probability of being employed operates through the higher education degree channel (origin affects education, which in turn affects the probability of being employed). 
   
-In the following treatment, we will ignore the fact that the Rivers-Vuong method do not work for a binary endogeneous variable and we will relax the assumptions regarding the laws of certain variables. We apply this method, with the same instrument than bfore, the CSP of the father. The instrument have to fulfill 2 conditions : 
+In the following treatment, we will ignore the fact that the Rivers-Vuong method do not work for a binary endogeneous variable and we will relax the assumptions regarding the laws of certain variables. We apply this method, with the same instrument than before, the CSP of the father. The instrument have to fulfill 2 conditions : 
 
 1) Relevance condition (i.e. cov(instrument, highdidegree) not equal to 0)
 In the sociological and economic literature, we know that parental socio-professional category is highly correlated with the educational attainment of children, and more precisely on the chance of having a higher education degree. Children of senior managers and professionals have substantially higher probabilities of attaining higher education, while children of manual workers have substantially lower probabilities. 
