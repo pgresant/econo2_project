@@ -650,12 +650,17 @@ summary(lpm_re)
 # We compute clustered standard errors at the individual level to account for serial correlation
 coeftest(lpm_re, vcov = vcovHC(lpm_re, type = "HC1", cluster = "group"))
 ```
+About the specification of our model :
 
-The selection of explanatory variables is guided by the "all else equal" principle, aiming to isolate the specific impact of origin by controlling for standard labor market determinants. The variable origine_cat is the primary variable of interest, constructed from parents' nationalities at birth to capture potential inequalities or discrimination linked to ancestry.
+- We assigned a missing value (NA) for the unemployment indicator for individuals who are inactive, rather than being coded as employed or unemployed. Indeed, we consider that inactivity is a distinct labour market status, and including inactive individuals as either employed or unemployed would misrepresent their situation. As a result, only periods during which an individual is active (employed or unemployed) contribute to the estimation
 
-To ensure the validity of this measure, several control variables are included. Gender (homme_cat) is a fundamental demographic control, as labor market participation and unemployment risks often differ structurally between men and women. The inclusion of age and its quadratic term age2 accounts for the non-linear effect of professional experience; unemployment probability typically decreases as individuals gain experience but may rise again for older workers nearing the end of their careers.
+- The socio-professional category Unemployed never worked is retained in the model but its coefficient don't have economic interpretation : by construction, an individual who has never worked cannot be employed, making the correlation between this category and unemployment status largely mechanical and uninformative from an economic standpoint.
 
-The socio-professional category (csp_cat) is included to control for the individual's position within the labor market hierarchy. Since different sectors and skill levels face varying degrees of job stability, controlling for CSP ensures that the estimated effect of origin does not merely reflect a concentration of certain groups in more precarious occupations.
+- The selection of explanatory variables is guided by the "all else equal" principle, aiming to isolate the specific impact of origin by controlling for standard labor market determinants. The variable origine_cat is the primary variable of interest, constructed from parents' nationalities at birth to capture potential inequalities or discrimination linked to ancestry.
+
+- To ensure the validity of this measure, several control variables are included. Gender (homme_cat) is a fundamental demographic control, as labor market participation and unemployment risks often differ structurally between men and women. The inclusion of age and its quadratic term age2 accounts for the non-linear effect of professional experience; unemployment probability typically decreases as individuals gain experience but may rise again for older workers nearing the end of their careers.
+
+- The socio-professional category (csp_cat) is included to control for the individual's position within the labor market hierarchy. Since different sectors and skill levels face varying degrees of job stability, controlling for CSP ensures that the estimated effect of origin does not merely reflect a concentration of certain groups in more precarious occupations.
 
 The analysis employs a Linear Probability Model with Random Effects to estimate the determinants of unemployment. Because the dependent variable is binary, the estimated coefficients can be directly interpreted as the change in the probability of being unemployed. The Random Effects specification relies on the assumption that unobserved individual heterogeneity—such as innate characteristics that remain constant over time—is strictly uncorrelated with the explanatory variables in the model. 
 
@@ -664,7 +669,12 @@ Since the Linear Probability Model generates heteroskedasticity and the panel st
 The results reveal a significant labor market penalty for several groups. Holding age, gender, and socio-professional category constant, individuals of Maghrebin origin face a probability of being unemployed that is 10.87 percentage points higher than their French-origin counterparts, an effect that is highly statistically significant. Similarly, individuals originating from the Rest of Africa and Southern Europe exhibit higher probabilities of being unemployed, by 8.01 and 3.75 percentage points respectively, both significant at the 5% level. The coefficients for other origins, namely Eastern Europe, Northern Europe, the Middle East, and the Rest of the World, do not show statistically significant differences from the reference group.
 
 Gender plays a significant role, with men exhibiting a 2.28 percentage point lower probability of being unemployed compared to women. The effect of age is captured through both linear and quadratic terms. 
-Socio-professional categories strongly correlate with employment status, most notably demonstrated by the extreme mechanical correlation for the "Unemployed never worked" category, which shows an 83.53 percentage point increase in unemployment probability relative to the omitted baseline category.
+
+The effect of age follows a U-shaped profile. The negative coefficient on age (−0.0075, p < 0.001) indicates that the probability of unemployment decreases as individuals accumulate experience, reflecting the value of professional networks. The positive coefficient on age2 (+0.000071, p < 0.001) captures the reversal of this trend for older workers, whose unemployment risk rises again as they approach retirement age and face potential discrimination or skill obsolescence.
+
+
+Socio-professional categories strongly correlate with employment status. The coefficient on csp_catUnemployed never worked (+0.835, p < 0.001) reflects a mechanical relationship rather than a causal one : by construction, individuals in this category have never held a job and are therefore recorded as unemployed by definition. This coefficient should not be interpreted as an economic effect.
+Among the economically meaningful categories, manual workers face a significantly higher unemployment probability (+4.08 percentage points, p < 0.05) relative to the reference group (CPIS, senior managers), while craftsmen (−4.60 percentage points) and farmers (−4.48 percentage points) face lower unemployment risks, though these effects are only marginally significant once standard errors are clustered.
 
 Despite these findings, the core assumption of the Random Effects model (that unobserved individual effects are uncorrelated with the regressors) remains a strong and potentially restrictive premise. It is highly plausible that unobserved traits, such as personal motivation or social networks, are correlated with an individual's origin or socio-professional category, thereby introducing an omitted variable bias into the current estimates. While a Fixed Effects (Within) model would traditionally correct for this endogeneity by eliminating time-invariant unobserved heterogeneity, implementing it in this context poses a structural issue: the Within transformation would simultaneously eliminate all time-invariant explanatory variables, thereby making it impossible to identify the causal effect of origin.
 
@@ -678,6 +688,11 @@ The practical implementation of this model in the current dataset is hampered by
 
 ## Question 5
 ### Question 5a
+
+Strict exogeneity requires $E(Unemp_{it'}*epsilon_{it})=0$ for all t,t′. In a dynamic model where $X_{it}=Unemp_{it−1}$, this assumption is not credible. Indeed, $Unemp_{it-1}$
+depends on $epsilon_{it-1}$, which is correlated with $epsilon_{it}$ if shocks are serially correlated. Moreover, future values of unemployment $Unemp_{it+1}$ depend on current shocks $epsilon_{it}$, further violating strict exogeneity.
+
+Weak exogeneity only requires $E(Unemp_{is}*epsilon_{it})=0$ for s<t, which means that past unemployment is uncorrelated with current shocks. This is more credible if the error terms $epsilon_{it}$ are serially uncorrelated. Under weak exogeneity, past levels $Unemp_{it-2}$ are valid instruments for $\Delta Unemp_{it-1}$ in the first-difference equation, which is the strategy we implement : 
 
 ```{r}
 # We create the lagged variables and differences taking the panel structure into account
@@ -700,7 +715,7 @@ p_active_dyn <- p_active %>%
 dyn_iv <- ivreg(d.unemp ~ d.l.unemp | l2.unemp, data = p_active_dyn)
 
 summary(dyn_iv)
-coeftest(dyn_iv, vcov = vcovCL, cluster = ~id_individu)
+coeftest(dyn_iv, vcov = vcovCL(dyn_iv, cluster = ~id_individu))
 
 ```
 In this question, we need to have individuals as active in all periods. To calculate the lag t - 1 and t - 2, an individual needs to be active in at least 3 consecutive periods of time for the model to run, which is not possible if we use certain trimesters only.
@@ -716,9 +731,15 @@ Regarding the exclusion of variables like gender, origin, and age from the instr
 
 ### Questions 5b
 
-The estimation of this dynamic model yields a coefficient of 0.394 for the lagged differenced unemployment variable ($\Delta Unemp_{it-1}$), which is highly statistically significant at the 0.1% level. This positive and significant estimate provides strong empirical evidence of true state dependence in the labor market. It implies that the experience of being unemployed in the previous period significantly increases the probability of remaining unemployed in the current period, even after purging the model of time-invariant individual fixed effects such as origin, gender, or innate ability through first-differencing.
+The estimation of this dynamic model yields a coefficient of 0.395 for the lagged differenced unemployment variable ($\Delta Unemp_{it-1}$), which is highly statistically significant at the 0.1% level. This positive and significant estimate provides strong empirical evidence of true state dependence in the labor market. It implies that the experience of being unemployed in the previous period significantly increases the probability of remaining unemployed in the current period, even after purging the model of time-invariant individual fixed effects such as origin, gender, or innate ability through first-differencing.
 
 In terms of economic magnitude, a coefficient of 0.394 suggests that roughly 39.4% of the previous period's change in unemployment status persists into the current period. This result highlights a "scarring effect," where the mere fact of being unemployed negatively impacts future employment prospects, potentially due to the depreciation of human capital, loss of professional networks, or negative signaling toward employers.It is also important to note the robustness of this finding, as the Wald test and the clustered t-test confirm that the relationship is not due to random noise. 
+
+We note that when clustered standard errors are applied at the individual level, the t-statistic drops from 18.9 to 9.2 ; so the standard errors are approximately twice as large once clustering is accounted for. This shows the importance of correcting for serial correlation within individuals. Despite this correction, the coefficient remains highly significant.
+
+Finally, the negative R-squared (−0.415) is an artefact of the 2SLS estimator and does not indicate a model misspecification. Indeed, unlike OLS, the 2SLS estimator is not constrained to improve upon the unconditional mean prediction, so negative R-squared values are expected.
+
+
 
 ## Question 6
 
