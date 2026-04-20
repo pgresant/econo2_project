@@ -558,7 +558,7 @@ However, the exogeneity condition for the instruments (parents’ socio-economic
 ## Question 3
 ### Question 3a
 
-We estimate a pooled OLS model on the panel sub-sample of employed individuals observed at t=1 and t=6, with clustered standard errors at the individual level to account for serial correlation within individuals. We make the random effects assumption that individual effects αᵢ are uncorrelated with the regressors.
+We estimate a pooled OLS model on the panel sub-sample of employed individuals observed at t=1 and t=6, with clustered standard errors at the individual level to account for serial correlation within individuals. We make the random effects assumption that individual effects ($\alpha_i$) are uncorrelated with the regressors.
 
 ```{r}
 # We create the panel subset for active individuals for t=1 and t=6 
@@ -577,12 +577,11 @@ cat("N observations :", nrow(panel_q3), "\n")
 cat("N individuals :", n_distinct(panel_q3$id_individu), "\n")
 
 
-# Fit the pooled OLS model
+# Pooled OLS model
 # We create a temporal dummy d_last to catch the common effect of the period
 pooled_ols <- lm(logsalhoraire ~ origine + education + homme + age + age2 + csp_actif + d_last, data = panel_q3)
 
 # Clustered standard errors at the "id" level
-# (comme vcovCL(pooled_ols, cluster = ~id) dans le TD)
 clustered_se <- vcovCL(pooled_ols, cluster = ~id_individu)
 
 # Summary of the model with clustered standard errors
@@ -590,23 +589,23 @@ coeftest(pooled_ols, vcov = clustered_se)
 ```
 d_last coefficient is +0.015 (p = 0.003). This means that, between the first and last waves observed, wages increased by an average of 1.5% all other things being equal. This captures the conjunctural effect common to all individuals.
 
- Education remains the strongest determinant of wages, with a significant gradient across levels. 
- Among origin groups, only Southern European origin shows a significant positive coefficient (+4.5%, p < 0.05)
+Education remains the strongest determinant of wages, with a significant gradient across levels. 
+Among origin groups, only Southern European origin shows a significant positive coefficient (+4.5%, p < 0.05)
  
 Finally, the results are consistent with the cross-sectional estimates of Question 1.
 
 ### Question 3b
 
-We can include the origine variable in the pooled OLS model estimated in the previous question because this estimator does not eliminate time-invariant regressors (as the origin).
+We can include the origine variable in the pooled OLS model estimated in the previous question because this estimator does not eliminate time-invariant regressors (such as the origin).
 
-However, the pooled OLS estimates do not resolve potential endogeneity problems because it relies on an unrealistic assumption. Indeed, the consistency of OLS requires that the individual effects αi are uncorrelated with all regressors, including origine. However, this assumption is unlikely to hold. Indeed, the individual effect αi captures all time-invariant unobserved characteristics of individual, such as unobserved ability or family cultural capital, that simultaneously influence both the individual's labour market position and their origin group. We can suppose that individuals with an immigrant backgrounds may differ from French-origin individuals in unobserved dimensions (social networks and cultural norms), that directly affect wages. These factors would be absorbed into αi, creating a correlation between αi and origine. 
+However, the pooled OLS estimates do not resolve potential endogeneity problems because it relies on an unrealistic assumption. Indeed, the consistency of OLS requires that the individual effects ($\alpha_i$) are uncorrelated with all regressors, including origine. However, this assumption is unlikely to hold. Indeed, the individual effect ($\alpha_i$) captures all time-invariant unobserved characteristics of individuals, such as unobserved ability or family cultural capital, that simultaneously influence both the individual's labour market position and their origin group. We can suppose that individuals with an immigrant backgrounds may differ from French-origin individuals in unobserved dimensions (social networks and cultural norms), that directly affect wages. These factors would be absorbed into ($\alpha_i$), creating a correlation between ($\alpha_i$) and origine. 
 
 As a result, the pooled OLS suffers from an omitted variable bias and does not consistently estimate the causal effect of origin on wages.
 
 
 ### Question 3c
 
-When we allow individual effects αi to be correlated with the regressors, we can use methods such as the within estimator and the first-difference estimator. Nonetheless, these methods eliminate αi because they exploit within-individual variation over time. Then, any time-invariant variable is also eliminated in the process. 
+When we allow individual effects ($\alpha_i$) to be correlated with the regressors, we can use methods such as the within estimator and the first-difference estimator. Nonetheless, these methods eliminate αi because they exploit within-individual variation over time. Then, any time-invariant variable is also eliminated in the process. 
 
 However, the variable origin is unfortunately time-invariant by construction, because parental nationality at birth does not change over time.
 
@@ -620,7 +619,7 @@ So, with the within estimator and the first-difference estimator, coefficients o
 In this model, we assume that the unobserved individual heterogeneity ($\alpha_i$) is uncorrelated with the explanatory variables ($E(\alpha_i | X_{it}) = 0$). To estimate this, we need to build a panel data frame containing all active individuals across all available periods.
 
 
-The primary advantage of the LPM is that its estimated coefficients directly represent the average marginal effect of the regressors on the probability of unemployment. Non-linear models face significant structural limitations in panel data settings, most notably the incidental parameters problem and severe complications when integrating instrumental variables (IV) for dynamic models. Although the LPM produces heteroskedasticity and can yield predicted probabilities outside the logical [0, 1] bounds, the issue is addressed by computing clustered robust standard errors.
+The primary advantage of the linear probability model is that its estimated coefficients directly represent the average marginal effect of the regressors on the probability of unemployment. Non-linear models face significant structural limitations in panel data settings, most notably the incidental parameters problem and severe complications when integrating instrumental variables (IV) for dynamic models. Although the linear probability model produces heteroskedasticity and can yield predicted probabilities outside the logical [0, 1] bounds, the issue is addressed by computing clustered robust standard errors.
 
 ```{r}
 # We create the panel subset for active individuals across all periods
@@ -658,16 +657,16 @@ To ensure the validity of this measure, several control variables are included. 
 
 The socio-professional category (csp_cat) is included to control for the individual's position within the labor market hierarchy. Since different sectors and skill levels face varying degrees of job stability, controlling for CSP ensures that the estimated effect of origin does not merely reflect a concentration of certain groups in more precarious occupations.
 
-The analysis employs a Linear Probability Model (LPM) with Random Effects to estimate the determinants of unemployment. Because the dependent variable is binary the estimated coefficients can be directly interpreted as the change in the probability of being unemployed. The Random Effects specification relies on the assumption that unobserved individual heterogeneity—such as innate characteristics that remain constant over time—is strictly uncorrelated with the explanatory variables in the model. 
+The analysis employs a Linear Probability Model with Random Effects to estimate the determinants of unemployment. Because the dependent variable is binary, the estimated coefficients can be directly interpreted as the change in the probability of being unemployed. The Random Effects specification relies on the assumption that unobserved individual heterogeneity—such as innate characteristics that remain constant over time—is strictly uncorrelated with the explanatory variables in the model. 
 
-Since the LPM generates heteroskedasticity and the panel structure implies serial correlation among observations of the same individual, robust standard errors clustered at the individual level are utilized to ensure valid statistical inference.Regarding the primary variable of interest, the origin of the individuals, the reference category is set to individuals of French origin. 
+Since the Linear Probability Model generates heteroskedasticity and the panel structure implies serial correlation among observations of the same individual, we use robust standard errors clustered at the individual level to ensure valid statistical inference. Regarding the primary variable of interest, the origin of the individuals, the reference category is set to individuals of French origin. 
 
 The results reveal a significant labor market penalty for several groups. Holding age, gender, and socio-professional category constant, individuals of Maghrebin origin face a probability of being unemployed that is 10.87 percentage points higher than their French-origin counterparts, an effect that is highly statistically significant. Similarly, individuals originating from the Rest of Africa and Southern Europe exhibit higher probabilities of being unemployed, by 8.01 and 3.75 percentage points respectively, both significant at the 5% level. The coefficients for other origins, namely Eastern Europe, Northern Europe, the Middle East, and the Rest of the World, do not show statistically significant differences from the reference group.
 
 Gender plays a significant role, with men exhibiting a 2.28 percentage point lower probability of being unemployed compared to women. The effect of age is captured through both linear and quadratic terms. 
 Socio-professional categories strongly correlate with employment status, most notably demonstrated by the extreme mechanical correlation for the "Unemployed never worked" category, which shows an 83.53 percentage point increase in unemployment probability relative to the omitted baseline category.
 
-Despite these findings, the core assumption of the Random Effects model—that unobserved individual effects are uncorrelated with the regressors—remains a strong and potentially restrictive premise. It is highly plausible that unobserved traits, such as personal motivation or social networks, are correlated with an individual's origin or socio-professional category, thereby introducing an omitted variable bias into the current estimates. While a Fixed Effects (Within) model would traditionally correct for this endogeneity by eliminating time-invariant unobserved heterogeneity, implementing it in this context poses a structural issue: the Within transformation would simultaneously eliminate all time-invariant explanatory variables, thereby making it impossible to identify the causal effect of origin
+Despite these findings, the core assumption of the Random Effects model (that unobserved individual effects are uncorrelated with the regressors) remains a strong and potentially restrictive premise. It is highly plausible that unobserved traits, such as personal motivation or social networks, are correlated with an individual's origin or socio-professional category, thereby introducing an omitted variable bias into the current estimates. While a Fixed Effects (Within) model would traditionally correct for this endogeneity by eliminating time-invariant unobserved heterogeneity, implementing it in this context poses a structural issue: the Within transformation would simultaneously eliminate all time-invariant explanatory variables, thereby making it impossible to identify the causal effect of origin.
 
 
 ### Question 4b
