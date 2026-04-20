@@ -153,27 +153,23 @@ df[vars_cat] <- lapply(df[vars_cat], as.factor) # We convert categorical variabl
 
 # We precise the category of reference
 df$acteu <- relevel(df$acteu, ref = "Employed")
-df$origine <- relevel(df$origine, ref = "France")
-df <- df %>%
-  mutate(origine_bin = ifelse(origine == "France", "France", "Etranger"))
 
-df$origine_bin <- as.factor(df$origine_bin)
-df$origine_bin <- relevel(df$origine_bin, ref = "France")
  # la catégorie aucun est la plus fréquente mais bon ...
 df$education <- relevel(df$education, ref = "Aucun")# la catégorie 7 est la plus fréquente mais bon ...je pense on eput changer selon le subdataset
 df$contrat <- relevel(df$contrat, ref = "CDI") # category la plus fréquente
 df$csp_actif <- relevel(df$csp_actif, ref = "Service employees") # category la plus fréquente$
 df$origine_cat <- relevel(df$origine_cat, ref = "France")
 df$origine_bin99 <- relevel(df$origine_bin99, ref = "France")
-# We create some variables 
+
+# We create the variable age squared
 df$age2 <- df$age^2
 ```
 
-Some descriptive statistics in order to understand the dataset
+Fist, we compute some descriptive statistics in order to understand the dataset and to recall the definition of being an immigrant and/ or a foreigner in France. It's important to have it in mind for the following treatments, and in particular to understand the discriminations on the labor market. 
 ```{r}
 table(df$immi, df$nat)
 ```
-According to INSEE, an immigrant is a person born abroad who is a foreign national and resides in France.
+According to INSEE, an immigrant is a person born abroad without the French nationality and resides in France.
 There is 1956 individual*quarter French people that are immigrants. Some immigrants have been able to become French citizens, whilst others remain foreign nationals. Indeed, immigrant status is permanent. 
 
 ```{r}
@@ -185,7 +181,7 @@ The other part of people who have at least one parent that held a different nati
 ```{r}
 cprop(table(df$immi, df$origine_bin))
 ```
-53,2% of the individualsxquartier who have at least one parent that held a different nationality than the French nationality are immigrant, meaning they are are born abroad without the French nationality. 
+53,2% of the individualsxquartier who have at least one parent that held a different nationality than the French nationality are immigrant, meaning they are are born abroad without the French nationality. The other part is not immigrant. 
 
 We provide the correct version of the variable salhoraire. As this does not affect the results when using the logarithm as the dependent variable (except for the constant/intercept) and that we done the treatment before the correction, we will keep the original variable logsalaire.
 ```{r}
@@ -215,11 +211,11 @@ prop(table(lastq_emp$annee, lastq_emp$trimestre))
 
 # to take into account the effect of the time gap between the observation, we add an indicator
 lastq_emp <- lastq_emp %>% mutate(indic2016 = ifelse(lastq_emp$annee == 2016, 1, 0))
-freq(lastq_emp$indic2016) # OK 
+freq(lastq_emp$indic2016) # check : OK  
 ```
 
+First, we make few descriptive statistics of the dependent variable, the salary, and of the dependent variabe, origins, to understand the heterogeneity of situations in the data.  
 ```{r q1_stats}
-# First, we make few descriptive statistics of salary 
 # summary(last_q$logsalhoraire)
 
 # Distribution of origin within employed individuals
@@ -227,14 +223,13 @@ freq(lastq_emp$origine)
 
 # descriptive statistics 
 rprop(table(lastq_emp$origine, lastq_emp$immi))
-cprop(table(lastq_emp$origine, lastq_emp$immi))
-
+cprop(table(lastq_emp$origine, lastq_emp$immi)) ; freq(lastq_emp$origine) # in order to compare
 ```
-In the subset, arounf 75% of the individuals with at least one parent with an African nationality (except Maghrebian) or a Middle East one are immigrant, whereas it's 47% for Magrhebian and Eastern Europe origins, 30% for Northern and Southern European orgins.  
+In the subset, around 75% of the individuals with at least one parent with an African nationality (except Maghrebian) or a Middle East one are immigrant, whereas it's 47% for Maghrebian and Eastern Europe origins, 30% for Northern and Southern European origins. Then, these individual don't have the same status, and can face different types of discriminations on the labor market.   
 
-This tendancy is confirmed by the second table : in the immigrant population, there 20% of people with at least one parent with an Maghrebian nationality, 17% with an African nationality and 25% with Southern European nationality. 
+This tendency is confirmed by the second table : in the immigrant population, there are 20% of people with at least one parent with an Maghrebian nationality, 17% with an African nationality and 25% with Southern European nationality. 
 
-### The choice of the variable origin 
+### The choice of the dependent variable 
 
 We estimate several models, using the function lm_robust (instead of lm), to compute heteroscedasticity-robust standard errors. Indeed, we are not sure that the homoscedasticity assumptions holds here.
 
@@ -249,47 +244,45 @@ modelsummary(m1, stars = TRUE)
 ```
 The estimator of the coefficient of indic2016 is very low (<0,01) and not significant at 10%. The Ajusted R-squared is lower in the model with the indicator than the other. So, we will not include this variable in the next models. 
 
-In the first regression (m1.1), we regress only the logarithm of wages on origin. The coefficients that are significant at 5% of level of risk are those for the Northern European origin (+0.119), the rest of Africa (-0.177) and South Asia (-0.151). The coefficient of the origin of Middle East origin (+0,09) is significant at the 10% level, but it's less relevant than the others. This can be interpreted as follows: an employee of South Asian origin earns approximately 15% less than an employee of French origin, in average. We can underline that the coefficient of the Maghreb origin has a p-value equal to 10,12%, meaning that it is not significant at 10% level, but not so far from this level. 
+In the first regression (m1.1), we regress only the logarithm of wages on origin. The coefficients that are significant at 5% of level of risk are those for the Northern European origin (+0.119), the rest of Africa (-0.178) and South Asia (-0.151). This can be interpreted as follows: an employee of South Asian origin earns approximately 15% less than an employee of French origin, in average. We can underline that the coefficient of the Maghreb origin has a p-value equal to 10,12%, meaning that it is not significant at 10% level, but not so far from this level. 
 
-Considering the numbers of people in the dataset and the result of the regression, we did the agregation of the variable seen upper in the code. It was necessary to agregated some categories, in order to get effectifs enough large to have be significate, when we will add other variables.
+Considering the numbers of people in the dataset and the result of the regression, we did the aggregation of the variable seen upper in the code. It was necessary to aggregated some categories, in order to get the numbers of individuals in each category enough large to have significant results, when we will add other covariates.
 
-We regrouped : Southern Asia and the Rest of the world ; Easter Europe and Southern Europe, only to see the effect, and to have around 30 indivuals at least in each category. 
+We regrouped : Southern Asia and the Rest of the world ; Eastern Europe and Southern Europe, only to see the effect, and to have around 30 or 60 individuals at least in each category. We also add another specification without the aggregation of the Easter Europe and Southern Europe, in hindsight. 
 
 ```{r}
 m1.2 <- lm_robust(logsalhoraire ~ origine_cat4, data = lastq_emp)
 summary(m1.2)
+freq(lastq_emp$origine_cat4)
+
+m1.22 <- lm_robust(logsalhoraire ~ origine_cat, data = lastq_emp)
+summary(m1.22)
 freq(lastq_emp$origine_cat)
 ```
-These results where expected. 
+These results were expected. 
 
 We test the binary variable origin. 
 ```{r}
 m1.3 <- lm_robust(logsalhoraire ~ origine_bin, data = lastq_emp)
 summary(m1.3)
 ```
-The dummy variable origin is significant at the 5% level. An employee that have at least on parent who do not held the French nationality earns approximately 3% less than an employee of French origin, in average and without variable of control. This can be interesting for us, in order to have an aggregated of this social condition, but it is not precise enough, and the risk of mixing very heterogeneous situation is very high. So, we will ne use this covariate first. 
+The dummy variable origin is significant at the 5% level. An employee that have at least on parent who do not held the French nationality earns approximately 3% less than an employee of French origin, in average and without variable of control. This can be interesting for us, in order to have an aggregated of this social condition, but it is not precise enough, and the risk of mixing very heterogeneous situation is very high. So, we will not use this covariate first. 
 
-
+We test the link with the status of immigrant, as we saw before the difference according to the origin. 
 ```{r}
 m2 <- lm_robust(logsalhoraire ~ immi + origine, data = lastq_emp)
 m2.1 <- lm_robust(logsalhoraire ~ immi + origine_bin, data = lastq_emp)
 m2.2 <- lm_robust(logsalhoraire ~ immi + origine_cat, data = lastq_emp)
 summary(m2); summary(m2.1) ; summary(m2.2)
 ```
-When we control by the dummy variable "immi", the origin is not . 
-- In model 2.1, the variable origin is not statistically significant.  
-- In model 2.2, the variable of the African origin is not significant anymore. The only significant variable are the open of Nothern European origin and Not Stated, that are more significant than before (at level 1%), and the coefficient are more important for the Northern origin (+3 point of pourcentage), meaning that the effect of this origin is broader when controlling by the immigration status. The variable of the middle East origin is significant at 10%.
-- In model 2, 
+When we control by the dummy variable of being an immigrant, the origin is not . 
+- In model 2.1, the binary variable origin is not statistically significant.  
+- In model 2.2, the same dummy variables of origins are significant : Africa, Northern Europe and Not Stated. 
+Northern European origin and Not Stated are more significant than before (at level 1%), but it is the opposit situation for the Rest of Africa origin. The coefficients are more important for the Northern origin (+3 points of percentage) meaning that the effect of this origin is broader when controlling by the immigration status. We can think that it is because people with a Northern European origin are less likely to be immigrant, and being immigrant is negatively correlated to the salary. The coefficient is more important for the Rest of Africa origin, meaning that the effect of this origin is less important in absolute value when controlling by the immigration status. We can think that it is because people with an African origin are more likely to be immigrant. 
 
-Pb d'endogéniété car plusieurs corrélation entre les régresseurs. on risque ici d'ajouter un biais de variable incluse. Donc on le rajoute pa la variable immi en controle. Néanmoins, une variable d'interaction pourrait etre pertinente. 
-=> ou alors on parle de cannal ntm pr les personnes africa origin??
+The immigrant status first seems to be one of the channels of the effect of origin. But, the simultaneous inclusion of both origin and migration status leads to significant collinearity, which undermines the reliability of the estimated coefficients. There is probably a included variable bias, controlling by the immigrant status. Immigrant status is linked to certain geographical trajectories in our sample. Moreover, this choice is justified by the desire to estimate the total effect of origin on wages without controlling for mechanisms linked to the migration transition. 
 
-We add an interaction variable in the model. 
-```{r}
-m2.3 <- lm_robust(logsalhoraire ~ immi*origine_cat, data = lastq_emp)
-summary(m2.3)
-```
-Rien est significatif. pb effectif et biais variable incluse potentielle. on garde pas cette specification qui n'est pas pertinente. 
+Due to this conclusion and choice of analysis, we won't present the model with an interaction between 'immi' and 'origin'. 
 
 To conclude our analysis, in this part pf question 1, we try to understand the effect of the variable origin, though different canals, leading to different specification of the variable itself. First, in order to apply the Central Limit Theorem and to have a consistent estimator, it is a necessity to have 30 individuals at least in each category. To do this, we grouped certain categories within the variable We performed various groupings to identify the most relevant one—that is, the grouping that combines the most closely related categories and allows us to identify potential differences in wages (or employment) based on origin. We therefore present only a selection of the specifications tested during this exercise. We initially adopted preliminary groupings to ensure larger sample sizes $>60$) for more robust inference. However, when we examined more detailed variable specifications (with sample sizes $>30$), significant differences between groups became apparent. Consequently, we chose to retain the most detailed variable possible. 
 
@@ -310,7 +303,7 @@ En termes de significativité statistique : -
 - la variable d'origine d'Europe du Nord est toujours statistiquement significative à 1%. 
 
 ```{r}
-m4 <- lm_robust(logsalhoraire ~ origine + homme + age + age2 + csp_actif, data = lastq_emp)
+m4 <- lm_robust(logsalhoraire ~ origine_cat + homme + age + age2 + csp_actif, data = lastq_emp)
 summary(m4)
 ```
 In this model, we regress only the logarithm of wages against gender, age, age squared, and origin. 
@@ -328,8 +321,7 @@ The R-squared is much higher in this model than the precedent one.
 m5 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine_cat + contrat + csp_actif, data = lastq_emp)
 summary(m5)
 ```
-
-Les effectifs ne sont pas assez grands pour avoir autant de variables de contrôle et conserver une inférence robuste.  
+If we include the contract type, we are measuring the effect of the origin background ‘at the same contract type’. Bias de variable incluse. The sample sizes are not large enough to include so many control variables and still maintain robust inference. 
 
 ```{r}
 m6 <- lm_robust(logsalhoraire ~ origine + education + homme + age + age2 + csp_actif, data = lastq_emp)
@@ -830,7 +822,7 @@ Indeed, if we denote \(X_j\), one of the dummies variable origin, the average ef
 $$
 E\Big[ F(X_{-j}' \beta_{0,-j} + \beta_{0j}) - F(X_{-j}' \beta_{0,-j}) \Big]
 $$
-In addition, in a binary model, the units of the AME are points of pourcentage. We will denote this unit "pp". 
+In addition, in a binary model, the units of the AME are points of percentage. We will denote this unit "pp". 
 
 Only one origin has a significant effect at 1% on the probability of beoing unemployed : it is Maghrebian origin. All else being equal, to have at least one parent who hold an origin of the Maghreb rather than having both parents who are French increase of 9,2 pp on average the probability of being unemployed.  
 The other variable are not statistically significant. 
@@ -1004,7 +996,7 @@ table(lastq$unemp, lastq$origine_cat)
 There is only 40 peoples with a higher education degree and who is unemployed in this subset. In each category, there are minimum 5 and maximum 31 individuals that are not employed and with an other origin than French. 
 Due to the specification of the probit model, this numbers are probably not large enough to have some robust conclusions about labor market discrimination.  
 
-For science, we test a last time this methods on the binary variable origin, which will agregate different effects. 
+For science, we test a last time this methods on the binary variable origin, which will aggregate different effects. 
 
 ```{r}
 modelbin <-  glm(unemp ~ origine_bin + homme + csp_actif_clean + age + I(age^2), family = binomial(link = "probit"), data = lastq)
