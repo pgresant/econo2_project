@@ -197,6 +197,8 @@ df$salhoraire = df$salmensuel / (df$heuretra * 4.33)
 
 ## Question 1
 
+### Data and descriptive statistics to understand the issues
+
 ```{r q1_sample}
 # We select the sample : employed individuals in the last observed quarter (t=6) 
 summary(df[df$t == "6" & df$acteu == "Employed", ]$salhoraire) # 660 NA in the dependent variable
@@ -232,6 +234,8 @@ In the subset, arounf 75% of the individuals with at least one parent with an Af
 
 This tendancy is confirmed by the second table : in the immigrant population, there 20% of people with at least one parent with an Maghrebian nationality, 17% with an African nationality and 25% with Southern European nationality. 
 
+### The choice of the variable origin 
+
 We estimate several models, using the function lm_robust (instead of lm), to compute heteroscedasticity-robust standard errors. Indeed, we are not sure that the homoscedasticity assumptions holds here.
 
 ```{r}
@@ -247,21 +251,23 @@ The estimator of the coefficient of indic2016 is very low (<0,01) and not signif
 
 In the first regression (m1.1), we regress only the logarithm of wages on origin. The coefficients that are significant at 5% of level of risk are those for the Northern European origin (+0.119), the rest of Africa (-0.177) and South Asia (-0.151). The coefficient of the origin of Middle East origin (+0,09) is significant at the 10% level, but it's less relevant than the others. This can be interpreted as follows: an employee of South Asian origin earns approximately 15% less than an employee of French origin, in average. We can underline that the coefficient of the Maghreb origin has a p-value equal to 10,12%, meaning that it is not significant at 10% level, but not so far from this level. 
 
-Considering the effectifs and the result of the regression, we did the agregation of the variable seen upper in the code. It was necessary to agregated some categories, in order to get effectifs enough large to have be significate, when we will add other variables.
-We regrouped : Southern Asia and the Rest of the world ; Easter Europe and Southern Europe, only to see the effect, and to have around 30 indivuals at least in each category. It would be possible after, to agregate the categories Southern Asia and the Rest of the world with the Not Stated (99), in terms of effect. 
+Considering the numbers of people in the dataset and the result of the regression, we did the agregation of the variable seen upper in the code. It was necessary to agregated some categories, in order to get effectifs enough large to have be significate, when we will add other variables.
+
+We regrouped : Southern Asia and the Rest of the world ; Easter Europe and Southern Europe, only to see the effect, and to have around 30 indivuals at least in each category. 
 
 ```{r}
-m1.2 <- lm_robust(logsalhoraire ~ origine_cat, data = lastq_emp)
+m1.2 <- lm_robust(logsalhoraire ~ origine_cat4, data = lastq_emp)
 summary(m1.2)
 freq(lastq_emp$origine_cat)
 ```
-These results where expected.  
+These results where expected. 
 
+We test the binary variable origin. 
 ```{r}
 m1.3 <- lm_robust(logsalhoraire ~ origine_bin, data = lastq_emp)
 summary(m1.3)
 ```
-The dummy variable origin is significant at the 5% level. An employee of that have at least on parent who do not held the french Nationality earns approximately 3% less than an employee of French origin, in average and without variable of control. This can be interesting for us, in order to have an aggregated of this social condition, but it is not precise enough. 
+The dummy variable origin is significant at the 5% level. An employee that have at least on parent who do not held the French nationality earns approximately 3% less than an employee of French origin, in average and without variable of control. This can be interesting for us, in order to have an aggregated of this social condition, but it is not precise enough, and the risk of mixing very heterogeneous situation is very high. So, we will ne use this covariate first. 
 
 
 ```{r}
@@ -284,6 +290,10 @@ m2.3 <- lm_robust(logsalhoraire ~ immi*origine_cat, data = lastq_emp)
 summary(m2.3)
 ```
 Rien est significatif. pb effectif et biais variable incluse potentielle. on garde pas cette specification qui n'est pas pertinente. 
+
+To conclude our analysis, in this part pf question 1, we try to understand the effect of the variable origin, though different canals, leading to different specification of the variable itself. First, in order to apply the Central Limit Theorem and to have a consistent estimator, it is a necessity to have 30 individuals at least in each category. To do this, we grouped certain categories within the variable We performed various groupings to identify the most relevant one—that is, the grouping that combines the most closely related categories and allows us to identify potential differences in wages (or employment) based on origin. We therefore present only a selection of the specifications tested during this exercise. We initially adopted preliminary groupings to ensure larger sample sizes $>60$) for more robust inference. However, when we examined more detailed variable specifications (with sample sizes $>30$), significant differences between groups became apparent. Consequently, we chose to retain the most detailed variable possible. 
+
+### Specification with other covariates
 
 ```{r}
 m3 <- lm_robust(logsalhoraire ~ origine_cat + homme + age + age2 + contrat, data = lastq_emp)
@@ -309,7 +319,7 @@ In absolute value, the coefficients :
 - increase for the Rest of Africa   
 
 En termes de significativité statistique : -
-- la variable d'origine du Middle East is not statiscally significant at 10%, 
+- la variable d'origine du Middle East is not statistically significant at 10%, 
 - la variable d'origine Rest of africa reste statistiquement significative à 5%. 
 - la variable d'origine d'Europe du Nord reste statistiquement significative à 5%.  
 
@@ -414,16 +424,7 @@ lastq_emp <- lastq_emp %>%
       TRUE ~ 0
     ),
     
-    # CSP of mother as a categorical variable
-    csp_mere_cat = case_when(
-      csp_mere %in% c("31","33","34","35","37","38","74") ~ 3,
-      csp_mere %in% c("21","22","23","72")                ~ 2,
-      csp_mere %in% c("42","43","44","45","46","47","48","75") ~ 4,
-      csp_mere %in% c("52","53","54","55","56","77")      ~ 5,
-      csp_mere %in% c("10","11","12","13","71")           ~ 1,
-      csp_mere %in% c("62","63","64","65","67","68","69","78") ~ 5,
-      TRUE ~ 0
-    )
+           
   )
 
 # Conversion using a reference factor of 5 (office staff/manual workers)
@@ -745,7 +746,7 @@ Finally, the negative R-squared (−0.415) is an artefact of the 2SLS estimator 
 
 ### Question 6a
 
-Afin de considérer un modèle avec un effet fixe, il est nécessaire de l'adpater au cas de la variable binaire. Suppose there exists a continuous variable $$Y^*$$, the latent variable, such that $$Y=\mathbf{1}\{Y^* \geq 0\}$$ and suppose that $$Y^*$$ is generated by a linear model with a fixed effect : 
+In order to consider a model with a fixed effect, it is necessary to adapt it to the case of a binary variable. Suppose there exists a continuous variable $Y^*$, the latent variable, such that $Y=\mathbf{1}\{Y^* \geq 0\}$ and suppose that $Y^*$ is generated by a linear model with a fixed effect : 
 
 $$
 Y_{it} = X_{it}'\beta_0 + \alpha_i + \varepsilon_{it}
@@ -759,13 +760,15 @@ E(Y_{it} \mid X_{it}, \alpha_i) \\
  \\
 = F(X_{it}' \beta + \alpha_i)
 $$
-If we try to apply the first difference method, we obtain : 
+
+If we try to apply the first differences method, we obtain : 
 $$
 E(Y_{it} - Y_{i,t-1} \mid X_{it}, X_{i,t-1}, \alpha_i)  \\
 = E(Y_{it} \mid X_{it}, X_{i,t-1}, \alpha_i) - E(Y_{i,t-1} \mid X_{it}, X_{i,t-1}, \alpha_i) \\
 = F(X_{it}' \beta + \alpha_i) - F(X_{i,t-1}' \beta + \alpha_i)
 $$
-Yet, the function F is not linear, as it is a distribution function of a random normal variable or the logistic distribution function. This do not allow us to eliminate the fixed effect as the linear model, in order to estimate $\beta$ without biais. In conclusion, we cannot use the first difference panel model. 
+
+Yet, the function F is not linear, as it is a distribution function of a random normal variable or the logistic distribution function. This do not allow us to eliminate the fixed effect as the linear model, in order to estimate $\beta$ without biais. In conclusion, we cannot use the first differences panel model. 
 
 If we try to apply the within panel method, we obtain : Q° on dvp le fait que parfois c négatif / positif ?? 
 $$
@@ -776,23 +779,6 @@ E\big(Y_{it} - \bar{Y}_i \mid X_{it}, \alpha_i \big)\\
 = F(X_{it}' \beta + \alpha_i) - \frac{1}{T} \sum_{t=1}^{T} F(X_{it}' \beta + \alpha_i)
 $$
 Yet, the function F is not linear, as it is a distribution function of a random normal variable or the logistic distribution function. This do not allow us to eliminate the fixed effect as the linear model, in order to estimate $\beta$ without biais. In conclusion, we cannot use the within panel model. 
-
-
-AU BROUILLON AU CAS OU les formules de logit et probit : 
-
-So we have : 
-$$
-E(Y \mid X) = F(X' \beta_0)
-$$
-$$
-P(Y_{it}=1 \mid X_{it}, \alpha_i) = \frac{\exp(X_{it}\beta + \alpha_i)}{1 + \exp(X_{it}\beta + \alpha_i)}
-$$
-$$
-P(Y_{it}=1 \mid X_{it}, \alpha_i) = \Phi(X_{it}\beta + \alpha_i)
-$$
-$$
-Y_{it} - Y_{i,t-1} = (X_{it} - X_{i,t-1})\beta + (\varepsilon_{it} - \varepsilon_{i,t-1})
-$$
 
 ### Question 6b 
 
@@ -810,20 +796,19 @@ lastq <- lastq %>% mutate(unemp = ifelse(lastq$acteu == "Unemployed", 1, 0))
 freq(lastq$unemp)
 freq(lastq$acteu)
 ```
-Our analysis will hold on 5030, including 324 individuals who are unemployed. 
-
-We suppose that the variable csp_actif in the data followed the french INSEE convention : for the unemployed individuals, the csp_actif indicates the CSP associated with their last employment. 
+Our analysis will hold on 5030, including 324 individuals who are unemployed. We suppose that the variable csp_actif in the data followed the french INSEE convention : for the unemployed individuals, the csp_actif indicates the CSP associated with their last employment. 
 
 First, we have to clean the data.  
 ```{r}
-freq(lastq$csp_actif) # modality empty ("") without any individualis in it 
+#freq(lastq$csp_actif) # modality empty ("") without any individualis in it 
 lastq$csp_actif_clean <- droplevels(lastq$csp_actif)
-levels(lastq$csp_actif_clean) 
+levels(lastq$csp_actif_clean) # check 
 
-# check 
-table(lastq$csp_actif,lastq$csp_actif_clean) # only terms in the diagonal : OK 
+# last check 
+table(lastq$csp_actif,lastq$csp_actif_clean) # only terms in the diagonal: OK 
 ```
 
+#### Probit model 
 
 We begin by estimating a probit model. 
 ```{r}
@@ -850,20 +835,23 @@ In addition, in a binary model, the units of the AME are points of pourcentage. 
 Only one origin has a significant effect at 1% on the probability of beoing unemployed : it is Maghrebian origin. All else being equal, to have at least one parent who hold an origin of the Maghreb rather than having both parents who are French increase of 9,2 pp on average the probability of being unemployed.  
 The other variable are not statistically significant. 
 
+#### Logit model
 
-We estimate a logit model. 
+We now estimate a logit model. 
 ```{r}
 logit_model <- glm(unemp ~ origine_cat + homme + csp_actif_clean + age + I(age^2), family = binomial(link = "logit"), data = lastq)
 summary(logit_model) # we interpret the sign and the significance of the coefficients, but not their values 
 ```
 The model's AIC is 2372,3, instead of 2208,2 for model 1. According to this measure, the probit model is better than the logit model. 
-->normalement l'AIC du logit est plus faible que celui du probit, c'est bizarre....
+
 We compute the Average Marginal Effect (AME) in the probit model. 
 ```{r}
 AME_logit <- margins(logit_model)
 summary(AME_logit)
 ```
-The result are quite identical with the ones of the probit model. Only the Maghrebian origin is statiscally significant, and it is at 1%, and the estimated AME is a bit more important than in the probit model : 9,3 pp rather than 9,2 pp. 
+The result are quite identical with the ones of the probit model. Only the Maghrebian origin is statistically significant, and it is at 1%, and the estimated AME is a bit more important than in the probit model : 9,3 pp rather than 9,2 pp. 
+
+#### Different specifications
 
 To be able to observe some differences comparing two non-French origins, we test some models behind.  
 ```{r}
@@ -889,7 +877,7 @@ To see some differences, we try to compare the effect of being from another orig
 - the one with Northern European origins (-9,1 pp, significant at 5%)
 - the ones with Southern European origins (-7,8 pp, significant at 1%)
 - the ones with "Rest of the world origin" ("Rest of the world origin" + Southern Asia) (-11,3 pp, significant at 1%). 
-The effect of the other origins cannot be stated as statiscally different than the Maghrebian ones. 
+The effect of the other origins cannot be stated as statistically different than the Maghrebian ones. 
 
 This provides a more in-depth analysis of the effect of origins in the labor market.  
 
@@ -899,7 +887,7 @@ We create the indicator of having a higher education degree (modality "1" of the
 ```{r}
 lastq$origine_cat <- relevel(lastq$origine_cat, ref = "France")
 lastq <- lastq %>% mutate(highdegree = ifelse(lastq$education == ">Bac+2", 1, 0))
-# Checking
+# check
 #freq(lastq$highdegree) # 975 individuals
 #freq(lastq$education)
 ```
@@ -911,7 +899,9 @@ summary(probit_model2) # we interpret the sign and the significance of the coeff
 AME_probit2 <- margins(probit_model2)
 summary(AME_probit2) ; summary(AME_probit) # quantitative interpretation is possible 
 ```
-We analyse quickly the result of the regression, with the indicator of having a higher education degree in the covariates. The age is significant at 10% level, whereas the sex is not. The covariates of the CSP are significant are 1% (except for the not stated). The new indicator is not significant statiscally. The AME of the indicator of being from Maghrebian origin is a bit more important in this model than in the previous one : all else being equal, to have at least one parent who hold an Maghrebian nationality rather than having both parents who are French increase of 9,3 pp on average the probability of being unemployed. The difference is only of 0,1 pp, which can be not significant. 
+
+We analyse quickly the result of the regression, with the indicator of having a higher education degree in the covariates. The age is significant at 10% level, whereas the sex is not. The covariates of the CSP are significant are 1% (except for the not stated). The new indicator is not significant statistically The AME of the indicator of being from Maghrebian origin is a bit more important in this model than in the previous one : all else being equal, to have at least one parent who hold an Maghrebian nationality rather than having both parents who are French increase of 9,3 pp on average the probability of being unemployed. The difference is only of 0,1 pp, which can be not significant. 
+
 
 For the same reasons than in question 2, to control for education level may raise an endogeneity problem. 
 
@@ -965,17 +955,31 @@ lastq$csp_pere_cat <- relevel(lastq$csp_pere_cat, ref = "5") # the more frequent
 
 Firstly, we compute the related OLS regression to obtain en estimation of $$\eta$$. This corresponds to the first stage. 
 ```{r}
-mod <- lm(highdegree ~ origine_cat + homme + csp_actif_clean + age + I(age^2) + csp_pere_cat, data = lastq, na.action = na.exclude) # we use na.exclude beacause it retains the position where data was missing in the final residual vector, which is very important here
-lastq$etahat<- mod$residuals  # si pb de lignes 
+mod <- lm(highdegree ~ origine_cat + homme + csp_actif_clean + age + I(age^2) + csp_pere_cat, data = lastq, na.action = na.exclude) # we use na.exclude beacause it retains the position where data was missing in the final residual vector, which is very important here  
+lastq$etahat<- mod$residuals
 summary(mod)
 ```
-We check the relevant conditions : the condition inside the indicator specifies the condition on `csp_pere` for the flag to be set to 1, with 0 always being the default value (5). 
+Note that we use 'lm' and not 'lm_robust' because 'na.exclude' do not exist in 'lm_robust'.
+
+We check the relevance conditions : the condition inside the indicator specifies the condition on `csp_pere` for the flag to be set to 1, with 0 always being the default value (5). 
 - $\mathbb{1}_{\{\text{csp_pere_cat} = 0\}}$ is not significant at 10% 
 - $\mathbb{1}_{\{\text{csp_pere_cat} = 1\}}$ is significant at 10% 
 - $\mathbb{1}_{\{\text{csp_pere_cat} = 2\}}$ is not significant at 1% 
 - $\mathbb{1}_{\{\text{csp_pere_cat} = 3\}}$ is not significant at 1% 
 - $\mathbb{1}_{\{\text{csp_pere_cat} = 4\}}$ is not significant at 1% 
-Only one indicator do not respect the relevant condition, and that the category of the not stated. As the all other indicators are relevant instruments, we will assume that the csp_pere_cat can be use as an instrument of highdegree.  
+Only one indicator do not respect the relevant condition, and that the category of the not stated. The joint relevance of the instruments is assessed via a Wald test comparing the full first-stage model to a restricted model excluding all father CSP dummies.
+
+```{r}
+first_stage_restricted <- lm(
+  highdegree ~ homme + age + I(age^2) + origine_cat + csp_actif_clean,
+  data = lastq
+) # we keep lm here, to use the same model than the first stage (mod). 
+waldtest(mod, first_stage_restricted)
+```
+The relevance condition requires that the parental CSP level variables are correlated with the fact that the individual has a higher education degree or not, conditional on the other covariates. The  ; that we can assess through the first-stage regression.
+
+The F-statistic of 45,2 in the Wald test is well above the conventional threshold of 10 used to detect weak instruments, knowing that this threshold is usually too small to detect weak instrument when the binary variable is 
+highly skewed (93,6% of 0 and 6,4% of 1). The p-value is less than 1%. The null hypothesis of jointly irrelevant instruments is therefore strongly rejected, and the relevance condition is satisfied.
 
 Then, we compute the logit model on  $Y=\mathbf{1}\{X'_1\beta_1 + X_2\beta_2+ \beta_3\widehat\eta + \zeta \geq 0\}$. Note that the variable $\zeta$ are the residuals of the regression. This is the second stage. 
 
@@ -984,14 +988,15 @@ model_instru <- glm(unemp ~ origine_cat + homme + csp_actif_clean + age + I(age^
 AME_instru <- margins(model_instru)
 summary(model_instru) ; summary(AME_instru) ; summary(AME_probit2) 
 ```
+Note that the AME of the Maghrebian origin is a litle bit more important in the model with the instrument (9,56 pp) than in the one without (9,29 pp). The effect can be underestimated in the model without the instrumentation. Indeed, the potential endogeneity of the variable introduced a confounding bias that underestimated this effect. The use of an instrumental variable made possible to isolate the origin effect from these factors, revealing its impact, which was slightly higher. This increase is onmy about 0,3 pp, meaning that this potential bias was not very strong. 
 
-We compute the Wu-Hausman test, which is the test of the significance of the coefficient of $\hat\eta$ (the test is valid in our case with the potential endogeneous variable). It is not significant ($p-value = 56\%$). As it is the coefficient of the first stage residual, we cannot reject the nullity of the coefficient, meaning that we cannot reject that our variable highdegree is not endogenous. Note that we tested the insturment with all the category of csp_pere (not regrouped), the p-value of the the coefficient of the first stage residual was not significant ($p-value = 22\%$ $< 56\%$). If the instrument detailled is more precise than the regrouped one, the coefficient was still not significant. 
+Nevertheless, we compute the Wu-Hausman test, which is the test of the significance of the coefficient of $\hat\eta$ (the test is valid in our case with the potential endogeneous variable). It is not significant ($p-value = 57\%$). As it is the coefficient of the first stage residual, we cannot reject the nullity of the coefficient, meaning that we cannot reject that our variable highdegree is not endogenous. Note that we tested the insturment with all the category of csp_pere (not regrouped), the p-value of the the coefficient of the first stage residual was not significant ($p-value = 22\%$ $< 57\%$). If the instrument detailed is more precise than the regrouped one, the coefficient was still not significant. 
 
 Here, we can do some hypothesis to understand these conclusions :
-- the variable of the highdegree is not endogeneous, which highly unlikely. 
+- it can be a good news that the variable of the highdegree is not endogeneous, but this conclusion remains unlikely. 
 - or the variable of the csp_pere is not exogeneous, which is highly likely as we explain before. 
 
-We can also question the number of people in the dataset : 
+Regarding the (none) significance of the variables origins, we can also question the number of people in the dataset : 
 ```{r}
 table(lastq$unemp, lastq$highdegree)
 table(lastq$unemp, lastq$origine_cat)
@@ -1020,12 +1025,10 @@ Without the instrument, all else being equal, to have at least one parent who do
 We note that when we use the model with the instrument, we saw the same result than before. The coefficient of the first stage residual are not significant. The coefficient of the variable origin is still significant.   
 
 
-
-
 Partie texte sur ce qu'on a fait pr l'immigration : 
 
 We try to understand the effect of the variable origin, though different canals, leading to different specification of the variable itself. 
-First, in order to apply the Central Limit Theorem and to have a consistent estimator, it is a necessity to have 30 individuals at least in each category. To do this, we grouped certain categories within the variable We performed various groupings to identify the most relevant one—that is, the grouping that combines the most closely related categories and allows us to identify potential differences in wages (or employment) based on origin. We therefore present only a selection of the specifications tested during this exercise. We initially adopted preliminary groupings to ensure larger sample sizes $$>60$$) for more robust inference. However, when we examined more detailed variable specifications (with sample sizes $$>30$$), significant differences between groups became apparent. Consequently, we chose to retain the most detailed variable possible. 
+First, in order to apply the Central Limit Theorem and to have a consistent estimator, it is a necessity to have 30 individuals at least in each category. To do this, we grouped certain categories within the variable We performed various groupings to identify the most relevant one—that is, the grouping that combines the most closely related categories and allows us to identify potential differences in wages (or employment) based on origin. We therefore present only a selection of the specifications tested during this exercise. We initially adopted preliminary groupings to ensure larger sample sizes $>60$) for more robust inference. However, when we examined more detailed variable specifications (with sample sizes $>30$), significant differences between groups became apparent. Consequently, we chose to retain the most detailed variable possible. 
 
 
 
