@@ -1,6 +1,6 @@
 ---
 title: "DM Econometrics - Labor Market and Origin"
-subtitle: "Econometrics 2 — ENSAE 2A — Polixène Gresant, Rachel Issiakou, Juliette Lesné"
+subtitle: "Econometrics 2 — ENSAE 2A — Polixène Grésant, Rachel Issiakou, Juliette Lesné"
 date: "Avril 2026"
 output:
   html_document:
@@ -10,7 +10,7 @@ output:
     number_sections: true
 ---
 
-```{r setup, include=FALSE}
+```{r setup}
 #install.packages()
 library(haven)
 library(dplyr)
@@ -27,7 +27,7 @@ library(estimatr)
 library(modelsummary)
 ```
 
-```{r data, include=FALSE}
+```{r data}
 url <- "https://github.com/pgresant/econo2_project/raw/main/DM_Subject_2_Data.dta"
 df <- read_dta(url)
 
@@ -275,16 +275,17 @@ m2.1 <- lm_robust(logsalhoraire ~ immi + origine_bin, data = lastq_emp)
 m2.2 <- lm_robust(logsalhoraire ~ immi + origine_cat, data = lastq_emp)
 summary(m2); summary(m2.1) ; summary(m2.2)
 ```
-When we control by the dummy variable of being an immigrant, the origin is not . 
+When we control by the dummy variable of being an immigrant, we found these result :  
 - In model 2.1, the binary variable origin is not statistically significant.  
 - In model 2.2, the same dummy variables of origins are significant : Africa, Northern Europe and Not Stated. 
+
 Northern European origin and Not Stated are more significant than before (at level 1%), but it is the opposit situation for the Rest of Africa origin. The coefficients are more important for the Northern origin (+3 points of percentage) meaning that the effect of this origin is broader when controlling by the immigration status. We can think that it is because people with a Northern European origin are less likely to be immigrant, and being immigrant is negatively correlated to the salary. The coefficient is more important for the Rest of Africa origin, meaning that the effect of this origin is less important in absolute value when controlling by the immigration status. We can think that it is because people with an African origin are more likely to be immigrant. 
 
 The immigrant status first seems to be one of the channels of the effect of origin. But, the simultaneous inclusion of both origin and migration status leads to significant collinearity, which undermines the reliability of the estimated coefficients. There is probably a included variable bias, controlling by the immigrant status. Immigrant status is linked to certain geographical trajectories in our sample. Moreover, this choice is justified by the desire to estimate the total effect of origin on wages without controlling for mechanisms linked to the migration transition. 
 
 Due to this conclusion and choice of analysis, we won't present the model with an interaction between 'immi' and 'origin'. 
 
-To conclude our analysis, in this part pf question 1, we try to understand the effect of the variable origin, though different canals, leading to different specification of the variable itself. First, in order to apply the Central Limit Theorem and to have a consistent estimator, it is a necessity to have 30 individuals at least in each category. To do this, we grouped certain categories within the variable We performed various groupings to identify the most relevant one—that is, the grouping that combines the most closely related categories and allows us to identify potential differences in wages (or employment) based on origin. We therefore present only a selection of the specifications tested during this exercise. We initially adopted preliminary groupings to ensure larger sample sizes $>60$) for more robust inference. However, when we examined more detailed variable specifications (with sample sizes $>30$), significant differences between groups became apparent. Consequently, we chose to retain the most detailed variable possible. 
+To conclude our analysis, in this part of question 1, we try to understand the effect of the variable origin, though different canals, leading to different specification of the variable itself. First, in order to apply the Central Limit Theorem and to have a consistent estimator, it is a necessity to have 30 individuals at least in each category. To do this, we grouped certain categories within the variable We performed various groupings to identify the most relevant one—that is, the grouping that combines the most closely related categories and allows us to identify potential differences in wages (or employment) based on origin. We therefore present only a selection of the specifications tested during this exercise. We initially adopted preliminary groupings to ensure larger sample sizes $>60$) for more robust inference. However, when we examined more detailed variable specifications (with sample sizes $>30$), significant differences between groups became apparent. Consequently, we chose to retain the most detailed variable possible. 
 
 ### Specification with other covariates
 
@@ -297,10 +298,10 @@ In absolute value, the coefficients :
 - increase for Middle East origin and Northern Europe origin variables.
 - decrease for the Rest of Africa and Rest of the world origin variables.  
 
-En termes de significativité statistique : -
-- la variable d'origine du Middle East devient statistiquement significative à 10%, 
-- la variable d'origine Rest of africa reste statistiquement significative à 5% (p-value of 1,06%). 
-- la variable d'origine d'Europe du Nord est toujours statistiquement significative à 1%. 
+In terms of statistical significance : 
+- the variable Middle East origin becomes statistically significant at the 10% level, 
+- the original variable ‘Rest of Africa’ remains statistically significant at the 5% level. 
+- the original variable for Northern Europe and “Not Stated” remains statistically significant at the 1% level.
 
 ```{r}
 m4 <- lm_robust(logsalhoraire ~ origine_cat + homme + age + age2 + csp_actif, data = lastq_emp)
@@ -316,19 +317,21 @@ En termes de significativité statistique : -
 - la variable d'origine Rest of africa reste statistiquement significative à 5%. 
 - la variable d'origine d'Europe du Nord reste statistiquement significative à 5%.  
 
-The R-squared is much higher in this model than the precedent one. 
+The adjusted R-squared is much higher in the model including the csp of the individuals than in the precedent one, which include the type of contracts. The model with the csp explains 31% of the variance of our dependent variable after adjusting for the number of variables included, whereas the one with the type of contract explains only 10%, after adjusting for the number of variables included. The variable csp_actif has a better power of explanation in our model.
+
+We test the model with both of these variables. 
 ```{r}
 m5 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine_cat + contrat + csp_actif, data = lastq_emp)
 summary(m5)
 ```
-If we include the contract type, we are measuring the effect of the origin background ‘at the same contract type’. The sample sizes are not large enough to include so many control variables and still maintain robust inference. 
+If we include the contract type, we are measuring the effect of the origin background 'at the same contract type' and 'at the same csp'. This model only explains 3 additional points of percentage in the proportion of variance explained. The coefficient of the Rest of Africa origin and of the Maghreb origin are not significant anymore, whereas the one of the Northern Europe is. In a surprising way, the coefficient of the Southern Europe origin is significant at 10%. The p-value of this coefficient was much higher in the other models. Since, the coefficient is only significant à 10%, we cannot be sure of the robustness of this model. Moreover, we thin that the sample sizes are not large enough to include so many control variables and still maintain robust inference. We rapidly check the numbers : 
 
-We check the numbers rapidly : 
 ```{r}
 table(lastq_emp$contrat, lastq_emp$origine )
 ```
 There are really few people that have not a French origin and another type of contract than CDI. 
 
+So, we choose to keep the csp instead of the contract type, because we choose to keep the better model with the higher adjusted R-squared and considering the trade-off between the power of explanation and the problem of number of people in all categories. The more explanatory model reduces the correlation between the residuals and the origin variable, thereby providing a clearer understanding of the effect of origin as a whole.  
 
 We test the chosen specification, adding the education as a covariate. 
 ```{r}
@@ -404,7 +407,6 @@ We construct csp_pere_cat and csp_mere_cat as follows :
 We assign retired individuals to their former occupational category.
 Both variables are treated as unordered factors with category 5 as the reference, generating four dummies per parent, for a total of 10 instruments.
 
-
 ```{r}
 lastq_emp <- df %>%
   filter(t == 6, acteu == "Employed", !is.na(salhoraire))
@@ -423,8 +425,15 @@ lastq_emp <- lastq_emp %>%
       csp_pere %in% c("62","63","64","65","67","68","69","78") ~ 5,
       TRUE ~ 0
     ),
-    
-           
+    csp_mere_cat = case_when(
+      csp_mere %in% c("31","33","34","35","37","38","74") ~ 3,
+      csp_mere %in% c("21","22","23","72")                ~ 2,
+      csp_mere %in% c("42","43","44","45","46","47","48","75") ~ 4,
+      csp_mere %in% c("52","53","54","55","56","77")      ~ 5,
+      csp_mere %in% c("10","11","12","13","71")           ~ 1,
+      csp_mere %in% c("62","63","64","65","67","68","69","78") ~ 5,
+      TRUE ~ 0
+    )
   )
 
 # Conversion using a reference factor of 5 (office staff/manual workers)
