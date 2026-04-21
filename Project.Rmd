@@ -256,7 +256,7 @@ m1.22 <- lm_robust(logsalhoraire ~ origine_cat, data = lastq_emp)
 summary(m1.22)
 freq(lastq_emp$origine_cat)
 ```
-These results were expected. 
+These results were expected. We see that the coefficient of Rest of Africa (-0.18) become significant at 1% level.
 
 We test the binary variable origin. 
 ```{r}
