@@ -241,7 +241,7 @@ summary(m1) ; summary(m1.1) # to compare the 2 models easily
 ```
 The estimator of the coefficient of indic2016 is very low (<0,01) and not significant at 10%. The Ajusted R-squared is lower in the model with the indicator than the other. So, we will not include this variable in the next models. 
 
-In the first regression (m1.1), we regress only the logarithm of wages on origin. The coefficients that are significant at 5% of level of risk are those for the Northern European origin (+0.12), the rest of Africa (-0.18) and South Asia (-0.18). This can be interpreted as follows : a worker of South Asian origin earns approximately 18% less than a worker of French origin, in average. 
+In the first regression (m1.1), we regress only the logarithm of wages on origin. The coefficients that are significant at 5% of level of risk are those for the Northern Europe origin (0.26) and Middle East origin (0.23). The coefficient of Nothern Africa origin (0.1) is siignificative at 10%. This can be interpreted as follows : a worker of Nothern Europe earns approximately 26% more than a worker of French origin, in average. 
 
 Considering the numbers of people in the dataset and the results of the regression, we aggregated the variables defined above in the code. It was necessary to aggregate some categories, in order to ensure that each category has a large enough sample size to yield significant results, when we will add other covariates.
 
