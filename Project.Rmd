@@ -153,10 +153,8 @@ df[vars_cat] <- lapply(df[vars_cat], as.factor) # We convert categorical variabl
 
 # We precise the category of reference
 df$acteu <- relevel(df$acteu, ref = "Employed")
-
- # la catégorie aucun est la plus fréquente mais bon ...
-df$education <- relevel(df$education, ref = "Aucun")# la catégorie 7 est la plus fréquente mais bon ...je pense on eput changer selon le subdataset
-df$contrat <- relevel(df$contrat, ref = "CDI") # category la plus fréquente
+df$education <- relevel(df$education, ref = "Bac") # we choe an intermediate category 
+df$contrat <- relevel(df$contrat, ref = "CDI") # category the more frequent
 df$csp_actif <- relevel(df$csp_actif, ref = "Service employees") # category la plus fréquente$
 df$origine_cat <- relevel(df$origine_cat, ref = "France")
 df$origine_bin99 <- relevel(df$origine_bin99, ref = "France")
@@ -203,7 +201,7 @@ lastq_emp <- df %>%
   dplyr::filter(t == 6, acteu == "Employed",  !is.na(salhoraire)) 
 
 cat("N =", nrow(lastq_emp), "employed individuals with observed salary \n")
-summary(lastq_emp$logsalhoraire) # no NA in the dependent variable
+summary(lastq_emp$logsalhoraire) # no NA in the dependent variable ; descriptive statistics 
 
 freq(lastq_emp$annee) # 42% of the observation are made in 2015, 58% in 2016
 table(lastq_emp$annee, lastq_emp$trimestre) 
@@ -289,33 +287,48 @@ To conclude our analysis, in this part of question 1, we try to understand the e
 
 ### Specification with other covariates
 
+First, we compute add the socio-demographics covariates and the type of contract in the linear model. 
 ```{r}
 m3 <- lm_robust(logsalhoraire ~ origine_cat + homme + age + age2 + contrat, data = lastq_emp)
 summary(m3)
 ```
-In this model, we regress only the logarithm of wages against gender, age, age squared, and origin. 
-In absolute value, the coefficients : 
-- increase for Middle East origin and Northern Europe origin variables.
-- decrease for the Rest of Africa and Rest of the world origin variables.  
+In this model, we regress the logarithm of wages on gender, age, age squared, origin and the type of contract. 
 
 In terms of statistical significance : 
 - the variable Middle East origin becomes statistically significant at the 10% level, 
 - the original variable ‘Rest of Africa’ remains statistically significant at the 5% level. 
 - the original variable for Northern Europe and “Not Stated” remains statistically significant at the 1% level.
+- all the dummy contract variable are statistically significant at 1%. 
+
+Qualitatively, comparatively to being in a long term contract (CDI), the fact of being in more precarious situations (CDD, Interim, Seasonal contract, Apprentissage) is associated with a decrease of the hourly wage, on average.   
+
+Concerning or variable of interest and from a quantitative point of view, all else being equal, having one parent who hold an African nationality (except of Maghreb) is associated with a 12% reduction of the hourly wage, in average. However,  all else being equal, having one parent who hold an Northern European nationality is associated with a 14% increase of the hourly wage, in average. 
+
+Compared to the previous model m1.22, without variables of control, in absolute value, the coefficients : 
+- increase for Middle East origin and Northern Europe origin variables,
+- decrease for the Rest of Africa origin. 
+
+The type of contract is therefore one of the channels through which the total effect of the origin is transmitted. The individuals with an African origin tend more likely to have a more precarious contract, unlike the individuals with a Northern European origin. So, controlling by the type of contract allows us to see the net effect of the origin variable. Nevertheless, this structural effect can also be capture by the social position and the type of profession. Indeed, the differences of salaries between professions are very high. In consequence, we test another model with control variable and the csp of the individual, without the type of contract in a first time. 
+
 
 ```{r}
 m4 <- lm_robust(logsalhoraire ~ origine_cat + homme + age + age2 + csp_actif, data = lastq_emp)
 summary(m4)
 ```
-In this model, we regress only the logarithm of wages against gender, age, age squared, and origin. 
-In absolute value, the coefficients : 
-- decrease for Middle East origin, Northern Europe, and Rest of the world origin variables. origin variables.
-- increase for the Rest of Africa   
+In this model, we regress the logarithm of wages on gender, age, age squared, origin and csp_actif 
 
-En termes de significativité statistique : -
-- la variable d'origine du Middle East is not statistically significant at 10%, 
-- la variable d'origine Rest of africa reste statistiquement significative à 5%. 
-- la variable d'origine d'Europe du Nord reste statistiquement significative à 5%.  
+In terms of statistical significance : 
+- the variable Middle East origin is not statistically significant, 
+- the original variable ‘Rest of Africa’ and Northern Europe remains statistically significant at the 5% level, but not at 1%. 
+- the dummy csp variable of CPIS and Intermediate profession are statistically significant at 1%, whereas the other CSP are not significant. It is not a surprise, because the pay conditions of employees and manual worker are very similar nowadays. 
+
+Qualitatively, comparatively to being an employee, the fact of being in a CPIS or in a intermediate profession is associated with a increase of the hourly wage, on average.   
+
+Concerning or variable of interest and from a quantitative point of view, all else being equal, having one parent who hold an African nationality (except of Maghreb) is associated with a 7% reduction of the hourly wage, in average. However,  all else being equal, having one parent who hold an Northern European nationality is associated with a 10% increase of the hourly wage, in average. 
+
+Compared to the previous model m1.22, without variables of control, in absolute value, the coefficients are less important. The wage differences are lower.  
+
+The csp is therefore one of the channels through which the total effect of the origin is transmitted. The individuals with an African origin tend more likely to have a less well-paid csp, unlike the individuals with a Northern European origin. So, controlling by the csp allows us to see the net effect of the origin variable. It is an important variable of contract. 
 
 The adjusted R-squared is much higher in the model including the csp of the individuals than in the precedent one, which include the type of contracts. The model with the csp explains 31% of the variance of our dependent variable after adjusting for the number of variables included, whereas the one with the type of contract explains only 10%, after adjusting for the number of variables included. The variable csp_actif has a better power of explanation in our model.
 
@@ -331,44 +344,35 @@ table(lastq_emp$contrat, lastq_emp$origine )
 ```
 There are really few people that have not a French origin and another type of contract than CDI. 
 
-So, we choose to keep the csp instead of the contract type, because we choose to keep the better model with the higher adjusted R-squared and considering the trade-off between the power of explanation and the problem of number of people in all categories. The more explanatory model reduces the correlation between the residuals and the origin variable, thereby providing a clearer understanding of the effect of origin as a whole.  
+So, we choose to keep the csp instead of the contract type, because we choose to keep the better model with the higher adjusted R-squared and considering the trade-off between the power of explanation and the problem of number of people in all categories. The more explanatory model reduces the correlation between the residuals and the origin variable, thereby providing a clearer understanding of the effect of origin as a whole. Furthermore, the CSP is a status that is less likely to change over the course of an individual’s life than the contractual variable, which is more time-bound and linked to a specific stage of a person’s working life (apprenticeship, fixed-term contract at the start of a career).
 
-We test the chosen specification, adding the education as a covariate. 
+In another hand, the effect of education on wage are really important, since it determins productivity and We test the chosen specification, adding the education as a covariate. 
 ```{r}
 m6 <- lm_robust(logsalhoraire ~ origine_cat + homme + age + age2 + csp_actif + education, data = lastq_emp)
 summary(m6)
 ```
-correlation entre education et entre csp_actif (mais très agrégé)
+In this model, we regress the logarithm of wages on gender, age, age squared, origin, csp_actif and education. 
 
-Comparing to the model 4, in this model : 
+In terms of statistical significance : 
+- the variable Middle East origin is not statistically significant, 
+- the original variable ‘Rest of Africa’ and Northern Europe remains statistically significant respectivelly at the 10% level and at 5%. 
+- all the dummy education variable of CPIS and Intermediate profession are statistically significant at 1%. It is not a surprise. 
 
-In absolute value, the coefficients : 
-- decrease for Rest of Africa, Northern Europe, Rest of the world and Not stated origin variables. 
+Qualitatively, comparatively to being an employee, the fact of having a higher degree than the Baccalaureat is associated with an increase of the hourly wage, on average, whereas having a lower degree than the Baccalaureat is associated with a decrease of the hourly wage, on average.   
 
-En termes de significativité statistique : -
-- la variable d'origine du Middle East is not statiscally significant at 10%,
-- la variable d'origine Rest of africa reste statistiquement significative à 10%. 
-- la variable d'origine d'Europe du Nord reste statistiquement significative à 5%.  
-- the variable of origin Southern Europe significant à 5%, which was not the case in the previous model. 
+Concerning or variable of interest and from a quantitative point of view, all else being equal, having one parent who hold an African nationality (except of Maghreb) is associated with a 7% reduction of the hourly wage, in average. However, all else being equal, having one parent who hold an Northern European nationality is associated with a 9% increase of the hourly wage, in average. 
 
+Compared to the previous model m1.22, without variables of control, the coefficients are very similar.
+
+The education is therefore one of the channels through which the total effect of the origin is transmitted. But, it imply endogenous problem, tackled latter.  
+
+
+Finally, we test to regress the salary on the covariates chosen. 
 ```{r}
-m7 <- lm_robust(salhoraire ~ homme + age + age2 + origine + csp_actif, data = lastq_emp)
+m7 <- lm_robust(salhoraire ~ homme + age + age2 + origine_cat + csp_actif, data = lastq_emp)
 summary(m7)
 ```
-
-**Explications**
-
-Four different regressions are carried out to test the differences in the coefficients of the variables and their significance, depending on the variables and categories used. These are four OLS models with standard errors robust to heteroscedasticity (HC1) based on the 4 046 employees in the last quarter. In the first three regressions, the dependent variable is the log of the hourly wage; whereas in the last one, the dependent variable is the hourly wage in absolute terms. For the first three regressions, explanatory variables are added in each case to determine the channels through which origin affects wages.
-
-In the first regression, we regress only the logarithm of wages against gender, age, age squared, and origin. The significant coefficients relating to origin are those for Northern European origin (+0.126), the rest of Africa (-0.15) and South Asia (-0.151). This can be interpreted as follows: all other things being equal, an employee of South Asian origin earns approximately 15% less than an employee of French origin.
-
-In the second regression, the education variable is included. The origins with significant coefficients are those from Southern Europe (0.49) and the rest of Africa (-0.113). The origin coefficients decrease for almost all origins. For example, for the ‘rest of Africa’ origin, the wage gap relative to individuals of French origin is -15% in the first regression, then -11% in the second. This means that part of this wage gap is due to the fact that certain groups have, on average, a lower level of education. For those of South-East Asian origin, the wage gap with employees of French origin disappears when education is included, which therefore appears to fully explain the gross wage gap.
-
-In the third regression, explanatory variables relating to contract type and socio-professional categories are also included. With regard to origin, the significant coefficients are those for origins associated with Northern Europe (+0.1) and Southern Europe (0.0577). The coefficients for origin diminish further and become insignificant. So another part of the pay gap can now be explained by the type of job held. The coefficient associated with African origin is no longer significant, so does the pay gap relative to individuals of French origin disappear completely once we control for the variables of education and type of job. Thus, direct discrimination regarding equal pay for equal work is not captured here, as inequality operates upstream, via access to education and good jobs. Nevertheless, there may be over-control if these variables are themselves consequences of origin.
-
-For the final regression, we take wage as the dependent variable directly, and as a result the coefficients associated with the intercept are no longer significant. This can be explained by the high variance in wage levels, as the distribution is skewed and high wages introduce noise. In the following analysis, we will therefore use the logarithm of wage as the dependent variable;
-
-In conclusion, wage gaps gradually narrow as we add controls. The only group for which the gap persists after controls is Southern Europe (with a coefficient of +6% in the third regression). So, at first glance, origin acts mainly through observable channels (level of education, type of employment), rather than through direct discrimination when the job and qualifications are identical.
+The results are quite different than the other models. The origin variables are not significant except for Norther Europe, which is significant at only 10%. So, we will not use this specification afterwards. Moreover, we have chosen to use the logarithm of wages rather than wages themselves, as this makes the results easier to interpret and reduces the dispersion of wages, which is highly asymmetric. 
 
 
 ## Question 2
@@ -405,7 +409,7 @@ We construct csp_pere_cat and csp_mere_cat as follows :
 - category 0 (not stated or without professional activity : codes 00, 81, 82).
 
 We assign retired individuals to their former occupational category.
-Both variables are treated as unordered factors with category 5 as the reference, generating four dummies per parent, for a total of 10 instruments.
+Both variables are treated as unordered factors with category 5 as the reference, generating five dummies per parent, for a total of 10 instruments.
 
 ```{r}
 lastq_emp <- df %>%
@@ -477,10 +481,8 @@ lastq_emp <- lastq_emp %>%
       education == "Brevet"  ~ 5,
       education == "Aucun"   ~ 6,
       TRUE ~ NA_real_
-    ),
-    age2 = age^2,
+    )
   )
-
 
 # Filter on education_num 
 lastq_emp <- lastq_emp %>%
@@ -512,7 +514,7 @@ r2_full <- summary(first_stage)$r.squared
 r2_res  <- summary(first_stage_restricted)$r.squared
 n <- nrow(lastq_emp)
 k <- length(coef(first_stage))
-q <- 8  # number of dummies instruments (4 father + 4 mother, cat1 to cat4)
+q <- 10  # number of dummies instruments (4 father + 4 mother, cat0 to cat4)
 F_stat <- ((r2_full - r2_res) / q) / ((1 - r2_full) / (n - k))
 cat("F-stat instruments :", round(F_stat, 2), "\n")
 ```
@@ -522,7 +524,7 @@ We can see that, relative to the reference category (employees and manual worker
 Children of intermediate profession parents also attain higher education levels (csp_pere_cat4 : −0.340, p < 0.001 ; csp_mere_cat4 : −0.374, p < 0.001).
 By contrast, the coefficients on agricultural workers (category 1) and self-employed mothers (category 2) are not individually significant, suggesting that children from these backgrounds have educational attainment similar to the reference group.
 
-The test yields Chi²(10) = 286 (p < 0.001), equivalent to an F-statistic of 30.08, well above the conventional threshold of 10 used to detect weak instruments.
+The test yields Chi²(10) = 286 (p < 0.001), equivalent to an F-statistic of 24,06, well above the conventional threshold of 10 used to detect weak instruments.
 
 The null hypothesis of jointly irrelevant instruments is therefore strongly rejected, and the relevance condition is satisfied.
 
