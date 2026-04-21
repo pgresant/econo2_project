@@ -178,7 +178,7 @@ The remaining individuals with at least one parent of a different nationality ar
 ```{r}
 cprop(table(df$immi, df$origine_bin))
 ```
-53,2% of the individuals*quartier who have at least one parent that holds a different nationality than the French nationality are immigrants, meaning they are born abroad without the French nationality.
+53,2% of the individuals*quarter who have at least one parent that holds a different nationality than the French nationality are immigrants, meaning they are born abroad without the French nationality.
 
 We provide the correct version of the variable salhoraire. As this does not affect the results when using the logarithm as the dependent variable (except for the constant/intercept) and as we did the treatment before the correction, we will keep the original variable logsalaire.
 ```{r}
@@ -241,7 +241,7 @@ modelsummary(m1, stars = TRUE)
 ```
 The estimator of the coefficient of indic2016 is very low (<0,01) and not significant at 10%. The Ajusted R-squared is lower in the model with the indicator than the other. So, we will not include this variable in the next models. 
 
-In the first regression (m1.1), we regress only the logarithm of wages on origin. The coefficients that are significant at 5% of level of risk are those for the Northern European origin (+0.119), the rest of Africa (-0.178) and South Asia (-0.151). This can be interpreted as follows: an employee of South Asian origin earns approximately 15% less than an employee of French origin, in average. We can underline that the coefficient of the Maghreb origin has a p-value equal to 10,12%, meaning that it is not significant at 10% level, but not so far from this level. 
+In the first regression (m1.1), we regress only the logarithm of wages on origin. The coefficients that are significant at 5% of level of risk are those for the Northern European origin (+0.119), the rest of Africa (-0.178) and South Asia (-0.151). This can be interpreted as follows : an employee of South Asian origin earns approximately 15% less than an employee of French origin, in average. We can underline that the coefficient of the Maghreb origin has a p-value equal to 10,12%, meaning that it is not significant at 10% level, but not so far from this level. 
 
 Considering the numbers of people in the dataset and the results of the regression, we aggregated the variables defined above in the code. It was necessary to aggregate some categories, in order to ensure that each category has a large enough sample size to yield significant results, when we will add other covariates.
 
