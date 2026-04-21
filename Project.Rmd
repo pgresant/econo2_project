@@ -162,6 +162,8 @@ df$origine_bin99 <- relevel(df$origine_bin99, ref = "France")
 df$age2 <- df$age^2
 ```
 
+For the purposes of our analysis, we have chosen to include ‘not stated’ responses of the variables, so as not to skew the sample.
+
 Fist, we compute some descriptive statistics in order to understand the dataset and to precisely define being an immigrant and/ or a foreigner in France. It's important to have in mind this definition for the treatments that follow, specifically to understand discrimination in the labor market. 
 ```{r}
 table(df$immi, df$nat)
