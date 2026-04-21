@@ -321,10 +321,18 @@ The R-squared is much higher in this model than the precedent one.
 m5 <- lm_robust(logsalhoraire ~ homme + age + age2 + origine_cat + contrat + csp_actif, data = lastq_emp)
 summary(m5)
 ```
-If we include the contract type, we are measuring the effect of the origin background ‘at the same contract type’. Bias de variable incluse. The sample sizes are not large enough to include so many control variables and still maintain robust inference. 
+If we include the contract type, we are measuring the effect of the origin background ‘at the same contract type’. The sample sizes are not large enough to include so many control variables and still maintain robust inference. 
 
+We check the numbers rapidly : 
 ```{r}
-m6 <- lm_robust(logsalhoraire ~ origine + education + homme + age + age2 + csp_actif, data = lastq_emp)
+table(lastq_emp$contrat, lastq_emp$origine )
+```
+There are really few people that have not a French origin and another type of contract than CDI. 
+
+
+We test the chosen specification, adding the education as a covariate. 
+```{r}
+m6 <- lm_robust(logsalhoraire ~ origine_cat + homme + age + age2 + csp_actif + education, data = lastq_emp)
 summary(m6)
 ```
 correlation entre education et entre csp_actif (mais très agrégé)
