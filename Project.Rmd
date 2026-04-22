@@ -1,6 +1,7 @@
 ---
 title: "DM Econometrics - Labor Market and Origin"
-subtitle: "Econometrics 2 — ENSAE 2A — Polixène Grésant, Rachel Issiakou, Juliette Lesné"
+subtitle: "Econometrics 2 — ENSAE 2A"
+author: "Polixène Grésant, Rachel Issiakou, Juliette Lesné"
 date: "Avril 2026"
 output:
   html_document:
